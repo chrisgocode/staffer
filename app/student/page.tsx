@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect, useMemo } from "react";
 import { StudentHeader } from "@/components/student-header";
 import { CalendarView } from "@/components/calendar-view";
 import { UpcomingEventsList } from "@/components/upcoming-events-list";
@@ -12,23 +11,12 @@ import { api } from "@/convex/_generated/api";
 
 export default function StudentDashboard() {
   const user = useQuery(api.users.getCurrentUser);
-  const events = useQuery(api.events.listEvents) ?? [];
+  const rawEvents = useQuery(api.events.listEvents);
+  const events = useMemo(() => rawEvents ?? [], [rawEvents]);
   const userSignups = useQuery(api.signups.getUserSignups) ?? [];
-  const searchParams = useSearchParams();
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const isLoading = user === undefined;
-
-  useEffect(() => {
-    const eventId = searchParams.get("id");
-    if (eventId) {
-      const event = events.find((e) => e._id === eventId);
-      if (event) {
-        setSelectedEvent(event);
-        setDialogOpen(true);
-      }
-    }
-  }, [searchParams, events]);
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== "STUDENT")) {

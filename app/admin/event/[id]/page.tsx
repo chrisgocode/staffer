@@ -72,7 +72,7 @@ export default function EventDetailPage() {
           <div className="text-center">
             <h2 className="text-2xl font-bold mb-2">Event Not Found</h2>
             <p className="text-muted-foreground mb-4">
-              The event you're looking for doesn't exist.
+              The event you&apos;re looking for doesn&apos;t exist.
             </p>
             <Button onClick={() => (window.location.href = "/admin")}>
               <ArrowLeft className="h-4 w-4 mr-2" />

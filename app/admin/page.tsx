@@ -21,7 +21,6 @@ export default function AdminDashboard() {
       eventIds: events.map((e) => e._id),
     }) ?? {};
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const isLoading = user === undefined;
 
   useEffect(() => {
