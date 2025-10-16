@@ -41,12 +41,16 @@ export function EventManagementList({
   const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
   const [showNeedsStaff, setShowNeedsStaff] = useState(false);
 
+  const parseLocalDate = (dateStr: string) => {
+    const [y, m, d] = dateStr.split("-").map((v) => Number.parseInt(v));
+    return new Date(y, (m || 1) - 1, d || 1);
+  };
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const upcomingEvents = events
     .filter((event) => {
-      const eventDate = new Date(event.date);
+      const eventDate = parseLocalDate(event.date);
       if (eventDate < today) return false;
 
       if (
@@ -62,10 +66,13 @@ export function EventManagementList({
 
       return true;
     })
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .sort(
+      (a, b) =>
+        parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime(),
+    );
 
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
+    const date = parseLocalDate(dateStr);
     return date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
@@ -99,8 +106,8 @@ export function EventManagementList({
   const availableMonths = Array.from(
     new Set(
       events
-        .filter((event) => new Date(event.date) >= today)
-        .map((event) => new Date(event.date).getMonth()),
+        .filter((event) => parseLocalDate(event.date) >= today)
+        .map((event) => parseLocalDate(event.date).getMonth()),
     ),
   ).sort((a, b) => a - b);
 

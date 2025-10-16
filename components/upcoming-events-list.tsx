@@ -18,16 +18,23 @@ export function UpcomingEventsList({
   signups,
   onEventClick,
 }: UpcomingEventsListProps) {
+  const parseLocalDate = (dateStr: string) => {
+    const [y, m, d] = dateStr.split("-").map((v) => Number.parseInt(v));
+    return new Date(y, (m || 1) - 1, d || 1);
+  };
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   const upcomingEvents = events
-    .filter((event) => new Date(event.date) >= today)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .filter((event) => parseLocalDate(event.date) >= today)
+    .sort(
+      (a, b) =>
+        parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime(),
+    )
     .slice(0, 5);
 
   const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
+    const date = parseLocalDate(dateStr);
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
@@ -94,14 +101,7 @@ export function UpcomingEventsList({
                     <span>{event.location}</span>
                   </div>
                 </div>
-                <div
-                  className={cn(
-                    "text-xs mt-2",
-                    event.spotsAvailable > 0
-                      ? "text-accent"
-                      : "text-muted-foreground",
-                  )}
-                >
+                <div className="text-xs mt-2">
                   {event.spotsAvailable} spots available
                 </div>
               </button>

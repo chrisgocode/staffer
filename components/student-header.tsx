@@ -32,7 +32,7 @@ export function StudentHeader() {
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Calendar className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-semibold">Campus Event Staffing</h1>
+          <h1 className="text-xl font-semibold">NC Event Staffing</h1>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

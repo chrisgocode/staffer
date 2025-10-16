@@ -254,6 +254,48 @@ export const getEventSignups = query({
   },
 });
 
+// Get public signups for a specific event (visible to any authenticated user)
+export const getPublicEventSignups = query({
+  args: {
+    eventId: v.id("events"),
+  },
+  returns: v.array(
+    v.object({
+      _id: v.id("signups"),
+      _creationTime: v.number(),
+      eventId: v.id("events"),
+      studentId: v.id("users"),
+      studentName: v.string(),
+      status: v.union(v.literal("PENDING"), v.literal("SCHEDULED")),
+      timeslots: v.array(
+        v.object({ startTime: v.string(), endTime: v.string() }),
+      ),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    // Return minimal, non-sensitive signup details for roster display
+    const signups = await ctx.db
+      .query("signups")
+      .withIndex("by_event_id", (q) => q.eq("eventId", args.eventId))
+      .collect();
+
+    return signups.map((s) => ({
+      _id: s._id,
+      _creationTime: s._creationTime,
+      eventId: s.eventId,
+      studentId: s.studentId,
+      studentName: s.studentName,
+      status: s.status,
+      timeslots: s.timeslots,
+    }));
+  },
+});
+
 // Get user's signups
 export const getUserSignups = query({
   args: {},

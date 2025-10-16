@@ -88,12 +88,16 @@ export function CalendarView({ events, onEventClick }: CalendarViewProps) {
                 onClick={() => onEventClick(event)}
                 className="w-full text-left text-xs bg-card hover:bg-muted border border-border px-2 py-1.5 rounded transition-colors"
               >
-                <div className="font-medium truncate mb-1">{event.title}</div>
-                <div className="flex items-center gap-1 text-muted-foreground">
-                  <Users className="h-3 w-3" />
-                  <span>
-                    {filledSpots}/{event.spotsTotal}
-                  </span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-medium truncate min-w-0 flex-1">
+                    {event.title}
+                  </div>
+                  <div className="flex items-center gap-1 text-muted-foreground shrink-0">
+                    <Users className="h-3 w-3" />
+                    <span>
+                      {filledSpots}/{event.spotsTotal}
+                    </span>
+                  </div>
                 </div>
               </button>
             );

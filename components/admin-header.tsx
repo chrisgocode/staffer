@@ -38,7 +38,7 @@ export function AdminHeader({ onCreateEvent }: AdminHeaderProps) {
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Calendar className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-semibold">Campus Event Staffing</h1>
+          <h1 className="text-xl font-semibold">NC Event Staffing</h1>
           <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
             Admin
           </span>
@@ -46,7 +46,7 @@ export function AdminHeader({ onCreateEvent }: AdminHeaderProps) {
         <div className="flex items-center gap-3">
           <Button onClick={onCreateEvent}>
             <Plus className="h-4 w-4 mr-2" />
-            Create Event
+            Create New Event
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -201,7 +201,7 @@ export default function EventDetailPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Student Applications</CardTitle>
+                <CardTitle>Student Signups</CardTitle>
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="pending">
@@ -226,7 +226,7 @@ export default function EventDetailPage() {
                   <TabsContent value="pending" className="space-y-3 mt-4">
                     {pendingSignups.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-8">
-                        No pending applications
+                        No pending signups
                       </p>
                     ) : (
                       pendingSignups.map((signup) => (
@@ -272,7 +272,7 @@ export default function EventDetailPage() {
               <CardContent className="space-y-4">
                 <div>
                   <div className="text-sm text-muted-foreground mb-1">
-                    Total Applications
+                    Total Signups
                   </div>
                   <div className="text-2xl font-bold">{signups.length}</div>
                 </div>

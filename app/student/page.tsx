@@ -50,11 +50,9 @@ export default function StudentDashboard() {
       <StudentHeader />
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6">
-          <h2 className="text-3xl font-bold tracking-tight mb-2">
-            Student Dashboard
-          </h2>
+          <h2 className="text-3xl font-bold tracking-tight mb-2">Dashboard</h2>
           <p className="text-muted-foreground">
-            Browse and sign up for campus events
+            Sign up for Newbury Center events!
           </p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

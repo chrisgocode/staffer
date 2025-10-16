@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { useMutation } from "convex/react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface EventDetailDialogProps {
   event: Event | null;
@@ -43,6 +44,11 @@ export function EventDetailDialog({
   const userSignups = useQuery(api.signups.getUserSignups) ?? [];
   const updateSignup = useMutation(api.signups.editSignupEvent);
   const deleteSignup = useMutation(api.signups.cancelSignup);
+  const eventSignups =
+    useQuery(
+      api.signups.getPublicEventSignups,
+      event ? { eventId: event._id } : "skip",
+    ) ?? [];
   const [timeslots, setTimeslots] = useState<
     Array<{ startTime: string; endTime: string }>
   >([{ startTime: "", endTime: "" }]);
@@ -165,8 +171,8 @@ export function EventDetailDialog({
         timeSlotEnd: first.endTime,
       });
 
-      toast.success("Application Submitted", {
-        description: "Your application is pending admin approval",
+      toast.success("You are signed up for this event", {
+        description: "Your signup is pending admin approval",
       });
 
       setTimeslots([{ startTime: "", endTime: "" }]);
@@ -209,6 +215,12 @@ export function EventDetailDialog({
     return `${displayHour}:${minutes} ${ampm}`;
   };
 
+  const getInitials = (fullName?: string) => {
+    if (!fullName) return "S";
+    const parts = fullName.trim().split(/\s+/).slice(0, 2);
+    return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "S";
+  };
+
   return (
     <Dialog
       open={open}
@@ -245,6 +257,64 @@ export function EventDetailDialog({
             <span>
               {event.spotsAvailable} of {event.spotsTotal} spots available
             </span>
+          </div>
+
+          <div className="pt-4 border-t space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium">
+                Students Signed Up ({eventSignups.length})
+              </h4>
+            </div>
+            {eventSignups.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No students have signed up yet.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {eventSignups.map((s) => (
+                  <li key={s._id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Avatar>
+                        <AvatarFallback>
+                          {getInitials(s.studentName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="truncate">
+                        <div className="text-sm font-medium truncate">
+                          {s.studentName}
+                          {user?._id === s.studentId && (
+                            <span className="ml-1 text-xs text-muted-foreground">
+                              (You)
+                            </span>
+                          )}
+                        </div>
+                        {s.timeslots.length > 0 && (
+                          <div className="text-xs text-muted-foreground truncate">
+                            {s.timeslots
+                              .map(
+                                (t) =>
+                                  `${formatTime(t.startTime)} - ${formatTime(t.endTime)}`,
+                              )
+                              .join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <Badge
+                      variant={
+                        s.status === "SCHEDULED"
+                          ? "default"
+                          : s.status === "PENDING"
+                            ? "destructive"
+                            : "secondary"
+                      }
+                    >
+                      {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {user?.role === "STUDENT" && (!existingSignup || isEditingSignup) && (
@@ -358,7 +428,8 @@ export function EventDetailDialog({
                   <span className="font-medium">Your Availability:</span>
                   {existingSignup.timeslots.map((slot, index) => (
                     <div key={index} className="text-muted-foreground pl-4">
-                      Timeslot {index + 1}: {slot.startTime} - {slot.endTime}
+                      Timeslot {index + 1}: {formatTime(slot.startTime)} -{" "}
+                      {formatTime(slot.endTime)}
                     </div>
                   ))}
                 </div>

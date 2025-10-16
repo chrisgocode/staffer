@@ -63,11 +63,9 @@ export default function AdminDashboard() {
       <AdminHeader onCreateEvent={() => setCreateDialogOpen(true)} />
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6">
-          <h2 className="text-3xl font-bold tracking-tight mb-2">
-            Admin Dashboard
-          </h2>
+          <h2 className="text-3xl font-bold tracking-tight mb-2">Dashboard</h2>
           <p className="text-muted-foreground">
-            Manage events and review student applications
+            Manage Newbury Center events and review student staff signups
           </p>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
