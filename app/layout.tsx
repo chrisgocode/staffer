@@ -1,5 +1,6 @@
 import type React from "react";
 import type { Metadata } from "next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { Analytics } from "@vercel/analytics/next";
 import { Toaster } from "@/components/ui/sonner";
@@ -43,6 +44,7 @@ export default function RootLayout({
           <ConvexClientProvider>{children}</ConvexClientProvider>
           <Toaster />
           <Analytics />
+          <SpeedInsights />
         </body>
       </html>
     </ConvexAuthNextjsServerProvider>
