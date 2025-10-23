@@ -17,10 +17,11 @@ export default defineSchema({
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
     role: v.optional(v.union(v.literal("ADMIN"), v.literal("STUDENT"))),
+    calendarToken: v.optional(v.string()),
   })
     .index("email", ["email"])
-    .index("by_role", ["role"]),
-
+    .index("by_role", ["role"])
+    .index("by_calendar_token", ["calendarToken"]),
   events: defineTable({
     title: v.string(),
     description: v.optional(v.string()),

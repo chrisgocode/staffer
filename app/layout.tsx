@@ -25,7 +25,7 @@ const lora = Lora({
 });
 
 export const metadata: Metadata = {
-  title: "Campus Event Staffing",
+  title: "NC Event Staffing",
   description: "Manage campus event staffing and volunteer opportunities",
 };
 

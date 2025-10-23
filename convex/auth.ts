@@ -1,6 +1,15 @@
 import Google from "@auth/core/providers/google";
 import { convexAuth } from "@convex-dev/auth/server";
 
+// Generate a cryptographically secure random token
+function generateSecureToken(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join(
+    "",
+  );
+}
+
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [Google],
   callbacks: {
@@ -49,20 +58,37 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 
         if (existingProfile) {
           console.log("Updating existing profile:", existingProfile._id);
-          // Update existing profile
-          await ctx.db.patch(existingProfile._id, {
-            role,
-          });
+          // Update existing profile, generate calendar token if student and doesn't have one
+          const updateData: {
+            role: "ADMIN" | "STUDENT";
+            calendarToken?: string;
+          } = { role };
+          if (role === "STUDENT" && !existingProfile.calendarToken) {
+            updateData.calendarToken = generateSecureToken();
+          }
+          await ctx.db.patch(existingProfile._id, updateData);
         } else {
           console.log("Creating new profile for user:", userId);
-          // Create new profile
-          const profileId = await ctx.db.insert("users", {
-            userId: userId,
+          // Create new profile with calendar token for students
+          const name =
+            (args.profile.name as string | undefined) || email.split("@")[0];
+          const profileData: {
+            email: string;
+            name: string;
+            role: "ADMIN" | "STUDENT";
+            calendarToken?: string;
+          } = {
             email,
-            name: args.profile.name || email.split("@")[0],
+            name,
             role,
-            createdAt: Date.now(),
-          });
+          };
+
+          // Generate calendar token for students
+          if (role === "STUDENT") {
+            profileData.calendarToken = generateSecureToken();
+          }
+
+          const profileId = await ctx.db.insert("users", profileData);
           console.log("Created profile with ID:", profileId);
         }
 

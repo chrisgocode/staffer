@@ -12,6 +12,15 @@ function extractUserId(tokenIdentifier: string): string {
   return parts[1];
 }
 
+// Generate a cryptographically secure random token
+function generateSecureToken(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join(
+    "",
+  );
+}
+
 // Sign up for an event
 export const signupForEvent = mutation({
   args: {
@@ -40,6 +49,12 @@ export const signupForEvent = mutation({
 
     if (user.role !== "STUDENT") {
       throw new Error("Only students can sign up for events");
+    }
+
+    // Auto-generate calendar token if user doesn't have one
+    if (!user.calendarToken) {
+      const token = generateSecureToken();
+      await ctx.db.patch(userId as Id<"users">, { calendarToken: token });
     }
 
     // Check if event exists
