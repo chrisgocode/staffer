@@ -8,6 +8,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -53,6 +63,7 @@ export function EventDetailDialog({
     Array<{ startTime: string; endTime: string }>
   >([{ startTime: "", endTime: "" }]);
   const [isEditingSignup, setIsEditingSignup] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   if (!event) return null;
 
@@ -183,18 +194,14 @@ export function EventDetailDialog({
 
   const handleCancelSignup = () => {
     if (!existingSignup) return;
+    deleteSignup({ signupId: existingSignup._id });
 
-    if (
-      confirm("Are you sure you want to cancel your signup for this event?")
-    ) {
-      deleteSignup({ signupId: existingSignup._id });
+    toast.success("Signup Cancelled", {
+      description: "You have been removed from this event",
+    });
 
-      toast.success("Signup Cancelled", {
-        description: "You have been removed from this event",
-      });
-
-      onOpenChange(false);
-    }
+    setShowCancelDialog(false);
+    onOpenChange(false);
   };
 
   const formatDate = (dateStr: string) => {
@@ -447,7 +454,7 @@ export function EventDetailDialog({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleCancelSignup}
+                  onClick={() => setShowCancelDialog(true)}
                   className="gap-2 text-destructive bg-transparent"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -486,6 +493,27 @@ export function EventDetailDialog({
           )}
         </div>
       </DialogContent>
+
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Signup</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel your signup for this event? This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Signup</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelSignup}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Cancel Signup
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

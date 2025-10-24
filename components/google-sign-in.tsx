@@ -18,7 +18,7 @@ export function GoogleSignIn() {
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl font-semibold">Sign In</CardTitle>
         <CardDescription>
-          Use your @school.edu email to access the platform
+          Use your @bu.edu email to access the platform
         </CardDescription>
       </CardHeader>
       <CardContent>
