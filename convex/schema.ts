@@ -15,7 +15,6 @@ export default defineSchema({
     emailVerificationTime: v.optional(v.number()),
     phone: v.optional(v.string()),
     phoneVerificationTime: v.optional(v.number()),
-    isAnonymous: v.optional(v.boolean()),
     role: v.optional(v.union(v.literal("ADMIN"), v.literal("STUDENT"))),
     calendarToken: v.optional(v.string()),
   })

@@ -319,10 +319,6 @@ export const getUserSignups = query({
       .withIndex("by_student_id", (q) => q.eq("studentId", userId))
       .collect();
 
-    if (!signups) {
-      return [];
-    }
-
     // Get event details for each signup, filtering out signups for non-existent events
     const signupsWithEvents = await Promise.all(
       signups.map(async (signup) => {

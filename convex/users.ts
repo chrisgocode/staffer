@@ -17,7 +17,6 @@ export const getCurrentUser = query({
       image: v.optional(v.string()),
       emailVerificationTime: v.optional(v.number()),
       phoneVerificationTime: v.optional(v.number()),
-      isAnonymous: v.optional(v.boolean()),
       role: v.optional(v.union(v.literal("ADMIN"), v.literal("STUDENT"))),
       calendarToken: v.optional(v.string()),
     }),

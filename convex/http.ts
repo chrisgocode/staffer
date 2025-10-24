@@ -28,11 +28,7 @@ http.route({
       { token },
     );
 
-    if (events.length === 0) {
-      return new Response("No scheduled events found", { status: 200 });
-    }
-
-    // Generate ICS file content
+    // Generate ICS file content (works for both empty and non-empty arrays)
     const icsContent = generateICS(events);
 
     return new Response(icsContent, {

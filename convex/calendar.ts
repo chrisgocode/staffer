@@ -15,13 +15,16 @@ function generateSecureToken(): string {
 // Generate or regenerate calendar token for the current user
 export const generateCalendarToken = mutation({
   args: {},
-  returns: v.object({
-    token: v.string(),
-  }),
+  returns: v.union(
+    v.object({
+      token: v.string(),
+    }),
+    v.null(),
+  ),
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
-      throw new Error("No user found");
+      return null;
     }
 
     // Check if user exists and is a student
