@@ -9,7 +9,25 @@ import { CreateEventDialog } from "@/components/create-event-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, Clock, MapPin, Users, Edit } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  ArrowLeft,
+  Calendar,
+  Clock,
+  MapPin,
+  Users,
+  Edit,
+  Trash2,
+} from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
@@ -22,16 +40,23 @@ export default function EventDetailPage() {
   const routeParams = useParams<{ id: string }>();
   const user = useQuery(api.users.getCurrentUser);
   const events = useQuery(api.events.listEvents);
+  const event = events?.find((e) => e._id === routeParams.id);
   const eventSignups =
-    useQuery(api.signups.getEventSignups, {
-      eventId: routeParams.id as unknown as Id<"events">,
-    }) ?? [];
+    useQuery(
+      api.signups.getEventSignups,
+      event ? { eventId: event._id } : "skip",
+    ) ?? [];
   const updateSignupStatus = useMutation(api.signups.confirmSignup);
   const removeStudentFromEvent = useMutation(api.events.removeStudentFromEvent);
+  const deleteEvent = useMutation(api.events.deleteEvent);
   const searchParams = useSearchParams();
   const router = useRouter();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [signupToRemove, setSignupToRemove] = useState<Id<"signups"> | null>(
+    null,
+  );
   const isLoading = user === undefined || events === undefined;
 
   useEffect(() => {
@@ -40,11 +65,9 @@ export default function EventDetailPage() {
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== "ADMIN")) {
-      window.location.href = "/";
+      router.push("/");
     }
-  }, [user, isLoading]);
-
-  const event = events?.find((e) => e._id === routeParams.id);
+  }, [user, isLoading, router]);
 
   if (isLoading) {
     return (
@@ -68,13 +91,13 @@ export default function EventDetailPage() {
     return (
       <div className="min-h-screen bg-background">
         <AdminHeader onCreateEvent={() => setCreateDialogOpen(true)} />
-        <main className="container mx-auto px-4 py-8">
+        <main className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
           <div className="text-center">
             <h2 className="text-2xl font-bold mb-2">Event Not Found</h2>
             <p className="text-muted-foreground mb-4">
               The event you&apos;re looking for doesn&apos;t exist.
             </p>
-            <Button onClick={() => (window.location.href = "/admin")}>
+            <Button onClick={() => router.push("/admin")}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Dashboard
             </Button>
@@ -96,19 +119,21 @@ export default function EventDetailPage() {
   };
 
   const handleRemove = (signupId: Id<"signups">) => {
-    const s = signups.find((u) => u._id === signupId);
+    setSignupToRemove(signupId);
+  };
+
+  const confirmRemoveStudent = () => {
+    if (!signupToRemove) return;
+    const s = signups.find((u) => u._id === signupToRemove);
     if (!s) return;
-    if (
-      confirm("Are you sure you want to remove this student from the event?")
-    ) {
-      removeStudentFromEvent({
-        eventId: event._id,
-        studentId: s.studentId,
-      });
-      toast.success("Student Removed", {
-        description: "The student has been removed from this event",
-      });
-    }
+    removeStudentFromEvent({
+      eventId: event._id,
+      studentId: s.studentId,
+    });
+    toast.success("Student Removed", {
+      description: "The student has been removed from this event",
+    });
+    setSignupToRemove(null);
   };
 
   const handleOpenEdit = () => {
@@ -120,6 +145,20 @@ export default function EventDetailPage() {
     setEditDialogOpen(open);
     if (!open) {
       router.push(`/admin/event/${routeParams.id}`);
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    try {
+      await deleteEvent({ eventId: event._id });
+      toast.success("Event Deleted", {
+        description: "The event has been successfully deleted",
+      });
+      // Navigate immediately after successful deletion
+      router.push("/admin");
+    } catch (error) {
+      toast.error("Failed to delete event");
+      setShowDeleteDialog(false);
     }
   };
 
@@ -147,7 +186,7 @@ export default function EventDetailPage() {
       <main className="container mx-auto px-4 py-8">
         <Button
           variant="ghost"
-          onClick={() => (window.location.href = "/admin")}
+          onClick={() => router.push("/admin")}
           className="mb-6"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -165,13 +204,22 @@ export default function EventDetailPage() {
                     </CardTitle>
                     <p className="text-muted-foreground">{event.description}</p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={handleOpenEdit}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={handleOpenEdit}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setShowDeleteDialog(true)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -314,6 +362,49 @@ export default function EventDetailPage() {
         open={editDialogOpen}
         onOpenChange={handleCloseEdit}
       />
+      <AlertDialog
+        open={signupToRemove !== null}
+        onOpenChange={(open) => !open && setSignupToRemove(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Student</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove this student from the event? This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRemoveStudent}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Remove Student
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Event</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this event? This action cannot be
+              undone and will remove all associated signups.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteEvent}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete Event
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -5,6 +5,16 @@ import { AdminHeader } from "@/components/admin-header";
 import { AdminCalendarView } from "@/components/admin-calendar-view";
 import { EventManagementList } from "@/components/event-management-list";
 import { CreateEventDialog } from "@/components/create-event-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { useQuery } from "convex/react";
 import { useMutation } from "convex/react";
@@ -21,6 +31,7 @@ export default function AdminDashboard() {
       eventIds: events.map((e) => e._id),
     }) ?? {};
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<Id<"events"> | null>(null);
   const isLoading = user === undefined;
 
   useEffect(() => {
@@ -42,16 +53,16 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteEvent = (eventId: Id<"events">) => {
-    if (
-      confirm(
-        "Are you sure you want to delete this event? This action cannot be undone.",
-      )
-    ) {
-      deleteEvent({ eventId });
-      toast.success("Event Deleted", {
-        description: "The event has been successfully deleted",
-      });
-    }
+    setEventToDelete(eventId);
+  };
+
+  const confirmDeleteEvent = () => {
+    if (!eventToDelete) return;
+    deleteEvent({ eventId: eventToDelete });
+    toast.success("Event Deleted", {
+      description: "The event has been successfully deleted",
+    });
+    setEventToDelete(null);
   };
 
   const handleEventClick = (event: Event) => {
@@ -90,6 +101,29 @@ export default function AdminDashboard() {
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
       />
+      <AlertDialog
+        open={eventToDelete !== null}
+        onOpenChange={(open) => !open && setEventToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Event</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this event? This action cannot be
+              undone and will remove all associated signups.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteEvent}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete Event
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

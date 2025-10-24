@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useAuthActions } from "@convex-dev/auth/react";
-import { AlertTriangle, Mail, Shield } from "lucide-react";
+import { AlertTriangle, Shield } from "lucide-react";
 
 export default function Unauthorized() {
   const { signOut } = useAuthActions();
@@ -20,20 +20,15 @@ export default function Unauthorized() {
 
         <div className="space-y-4 text-gray-600 mb-8">
           <div className="flex items-center justify-center space-x-2">
-            <Mail className="h-5 w-5" />
-            <span>Only @bu.edu emails are allowed</span>
-          </div>
-
-          <div className="flex items-center justify-center space-x-2">
             <Shield className="h-5 w-5" />
-            <span>Your email must be whitelisted by an administrator</span>
+            <span>Your email must be whitelisted</span>
           </div>
         </div>
 
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <p className="text-sm text-blue-800">
-            <strong>Need access?</strong> Contact your campus program
-            coordinator to have your @bu.edu email added to the whitelist.
+            <strong>Think this is a mistake?</strong> Contact NC Pro Staff to
+            have your @bu.edu email added to the whitelist.
           </p>
         </div>
 

@@ -1,5 +1,4 @@
 import { QueryCtx, MutationCtx } from "./_generated/server";
-import { Doc } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 export async function requireAdmin(
@@ -15,7 +14,7 @@ export async function requireAdmin(
     throw new Error("User not found");
   }
 
-  let isAdmin = currentUser.role === "ADMIN";
+  const isAdmin = currentUser.role === "ADMIN";
 
   if (!isAdmin) {
     throw new Error("Admin access required");
