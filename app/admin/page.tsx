@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { AdminHeader } from "@/components/admin-header";
-import { AdminCalendarView } from "@/components/admin-calendar-view";
-import { EventManagementList } from "@/components/event-management-list";
-import { CreateEventDialog } from "@/components/create-event-dialog";
+import { AdminHeader } from "@/components/admin/admin-header";
+import { AdminCalendarView } from "@/components/admin/admin-calendar-view";
+import { EventManagementList } from "@/components/admin/event/event-management-list";
+import { CreateEventDialog } from "@/components/admin/event/create-event-dialog";
 import {
   AlertDialog,
   AlertDialogAction,

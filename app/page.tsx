@@ -1,6 +1,6 @@
 "use client";
 
-import { GoogleSignIn } from "@/components/google-sign-in";
+import { GoogleSignIn } from "@/components/auth/google-sign-in";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";

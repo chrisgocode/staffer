@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,18 +14,13 @@ import { LogOut, Calendar } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { getInitialsFromName } from "@/lib/name-util";
 
 export function StudentHeader() {
   const { signOut } = useAuthActions();
   const user = useQuery(api.users.getCurrentUser);
 
   if (!user || user == undefined) return null;
-
-  const initials = user.name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase();
 
   return (
     <header className="border-b border-border bg-card">
@@ -38,7 +33,12 @@ export function StudentHeader() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
               <Avatar>
-                <AvatarFallback>{initials}</AvatarFallback>
+                <AvatarImage
+                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`}
+                />
+                <AvatarFallback>
+                  {getInitialsFromName(user.name)}
+                </AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>

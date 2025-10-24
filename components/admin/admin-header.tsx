@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { LogOut, Calendar, Plus } from "lucide-react";
-import { api } from "../convex/_generated/api";
+import { api } from "@/convex/_generated/api";
+import { getInitialsFromName } from "@/lib/name-util";
 import { useQuery } from "convex/react";
 
 interface AdminHeaderProps {
@@ -24,14 +25,6 @@ export function AdminHeader({ onCreateEvent }: AdminHeaderProps) {
   const user = useQuery(api.users.getCurrentUser);
 
   if (!user) return null;
-
-  const initials = user.name
-    .split(" ")
-    .filter((n) => n.trim().length > 0)
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase();
 
   return (
     <header className="border-b border-border bg-card">
@@ -55,7 +48,12 @@ export function AdminHeader({ onCreateEvent }: AdminHeaderProps) {
                 className="relative h-10 w-10 rounded-full"
               >
                 <Avatar>
-                  <AvatarFallback>{initials}</AvatarFallback>
+                  <AvatarImage
+                    src={`https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`}
+                  />
+                  <AvatarFallback>
+                    {getInitialsFromName(user.name)}
+                  </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
