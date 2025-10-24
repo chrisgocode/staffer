@@ -1,16 +1,8 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-
-function extractUserId(tokenIdentifier: string): string {
-  const parts = tokenIdentifier.split("|");
-  if (parts.length < 2) {
-    throw new Error(
-      `Invalid token format: expected format "provider|userId", got "${tokenIdentifier}"`,
-    );
-  }
-  return parts[1];
-}
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { requireAdmin } from "./permissions";
 
 // Generate a cryptographically secure random token
 function generateSecureToken(): string {
@@ -30,18 +22,13 @@ export const signupForEvent = mutation({
   },
   returns: v.id("signups"),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("No user found");
     }
 
-    const userId = extractUserId(identity.tokenIdentifier);
-
     // Check if user profile exists and is a student
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_id", (q) => q.eq("_id", userId as Id<"users">))
-      .unique();
+    const user = await ctx.db.get(userId);
 
     if (!user) {
       throw new Error("User profile not found");
@@ -54,7 +41,7 @@ export const signupForEvent = mutation({
     // Auto-generate calendar token if user doesn't have one
     if (!user.calendarToken) {
       const token = generateSecureToken();
-      await ctx.db.patch(userId as Id<"users">, { calendarToken: token });
+      await ctx.db.patch(userId, { calendarToken: token });
     }
 
     // Check if event exists
@@ -79,7 +66,7 @@ export const signupForEvent = mutation({
     const existingSignup = await ctx.db
       .query("signups")
       .withIndex("by_event_and_student", (q) =>
-        q.eq("eventId", args.eventId).eq("studentId", userId as Id<"users">),
+        q.eq("eventId", args.eventId).eq("studentId", userId),
       )
       .unique();
 
@@ -90,9 +77,9 @@ export const signupForEvent = mutation({
     // Create the signup
     return await ctx.db.insert("signups", {
       eventId: args.eventId,
-      studentId: userId as Id<"users">,
+      studentId: userId,
       studentName: user.name,
-      studentEmail: user.email ?? "",
+      studentEmail: user.email,
       status: "PENDING",
       timeslots: [{ startTime: args.timeSlotStart, endTime: args.timeSlotEnd }],
     });
@@ -108,18 +95,13 @@ export const editSignupEvent = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("No user found");
     }
 
-    const userId = extractUserId(identity.tokenIdentifier);
-
     // Check if user profile exists and is a student
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_id", (q) => q.eq("_id", userId as Id<"users">))
-      .unique();
+    const user = await ctx.db.get(userId);
 
     if (!user) {
       throw new Error("User profile not found");
@@ -136,7 +118,7 @@ export const editSignupEvent = mutation({
     }
 
     // Check if user owns this signup
-    if (signup.studentId !== (userId as Id<"users">)) {
+    if (signup.studentId !== userId) {
       throw new Error("You can only edit your own signups");
     }
 
@@ -175,12 +157,10 @@ export const cancelSignup = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("No user found");
     }
-
-    const userId = extractUserId(identity.tokenIdentifier);
 
     // Get the signup
     const signup = await ctx.db.get(args.signupId);
@@ -189,7 +169,7 @@ export const cancelSignup = mutation({
     }
 
     // Check if user owns this signup
-    if (signup.studentId !== (userId as Id<"users">)) {
+    if (signup.studentId !== userId) {
       throw new Error("You can only cancel your own signups");
     }
 
@@ -232,18 +212,13 @@ export const getEventSignups = query({
     }),
   ),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("No user found");
     }
 
-    const userId = extractUserId(identity.tokenIdentifier);
-
     // Check if user is admin or the event creator
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_id", (q) => q.eq("_id", userId as Id<"users">))
-      .unique();
+    const user = await ctx.db.get(userId);
 
     if (!user) {
       throw new Error("User profile not found");
@@ -255,7 +230,7 @@ export const getEventSignups = query({
     }
 
     // Only admins and event creators can see all signups
-    if (user.role !== "ADMIN" && event.createdBy !== (userId as Id<"users">)) {
+    if (user.role !== "ADMIN" && event.createdBy !== userId) {
       throw new Error("You are not authorized to view signups for this event");
     }
 
@@ -288,9 +263,9 @@ export const getPublicEventSignups = query({
     }),
   ),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("No user found");
     }
 
     // Return minimal, non-sensitive signup details for roster display
@@ -333,36 +308,41 @@ export const getUserSignups = query({
     }),
   ),
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("No user found");
     }
-
-    const userId = extractUserId(identity.tokenIdentifier);
 
     // Get all signups for the user
     const signups = await ctx.db
       .query("signups")
-      .withIndex("by_student_id", (q) =>
-        q.eq("studentId", userId as Id<"users">),
-      )
+      .withIndex("by_student_id", (q) => q.eq("studentId", userId))
       .collect();
 
-    // Get event details for each signup
+    if (!signups) {
+      return [];
+    }
+
+    // Get event details for each signup, filtering out signups for non-existent events
     const signupsWithEvents = await Promise.all(
       signups.map(async (signup) => {
         const event = await ctx.db.get(signup.eventId);
+        if (!event) {
+          // Return null for signups with non-existent events
+          return null;
+        }
         return {
           ...signup,
-          eventTitle: event?.title || "Unknown Event",
-          eventLocation: event?.location || "Unknown Location",
-          eventStartTime: event?.startTime || "",
-          eventEndTime: event?.endTime || "",
+          eventTitle: event.title,
+          eventLocation: event.location,
+          eventStartTime: event.startTime,
+          eventEndTime: event.endTime,
         };
       }),
     );
 
-    return signupsWithEvents;
+    // Filter out null values (signups for non-existent events)
+    return signupsWithEvents.filter((signup) => signup !== null);
   },
 });
 
@@ -371,41 +351,11 @@ export const getPendingCountsForEvents = query({
   args: { eventIds: v.array(v.id("events")) },
   returns: v.record(v.id("events"), v.number()),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
+    // Only admins can see events
+    await requireAdmin(ctx);
 
-    const callerUserId = extractUserId(identity.tokenIdentifier);
-
-    // Load caller user for role checks
-    const caller = await ctx.db
-      .query("users")
-      .withIndex("by_id", (q) => q.eq("_id", callerUserId as Id<"users">))
-      .unique();
-
-    if (!caller) {
-      throw new Error("User profile not found");
-    }
-
-    // Build a set of events where caller is authorized (admin or event creator)
-    const authorizedEventIds = new Set<Id<"events">>();
-    for (const eventId of args.eventIds as Array<Id<"events">>) {
-      const event = await ctx.db.get(eventId);
-      if (!event) continue;
-      if (
-        caller.role === "ADMIN" ||
-        event.createdBy === (callerUserId as Id<"users">)
-      ) {
-        authorizedEventIds.add(eventId);
-      }
-    }
-
-    const counts: Record<Id<"events">, number> = {} as Record<
-      Id<"events">,
-      number
-    >;
-    for (const eventId of authorizedEventIds) {
+    const counts: Record<Id<"events">, number> = {};
+    for (const eventId of args.eventIds) {
       let count = 0;
       const signupsForEvent = await ctx.db
         .query("signups")
@@ -442,18 +392,16 @@ export const isSignedUpForEvent = query({
     v.null(),
   ),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("No user found");
     }
-
-    const userId = extractUserId(identity.tokenIdentifier);
 
     // Check if user has signed up for this event
     const signup = await ctx.db
       .query("signups")
       .withIndex("by_event_and_student", (q) =>
-        q.eq("eventId", args.eventId).eq("studentId", userId as Id<"users">),
+        q.eq("eventId", args.eventId).eq("studentId", userId),
       )
       .unique();
 
@@ -469,22 +417,12 @@ export const confirmSignup = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("No user found");
     }
 
-    const userId = extractUserId(identity.tokenIdentifier);
-
-    // Check if user is admin
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_id", (q) => q.eq("_id", userId as Id<"users">))
-      .unique();
-
-    if (!user || user.role !== "ADMIN") {
-      throw new Error("Admin access required");
-    }
+    await requireAdmin(ctx);
 
     // Check if signup exists
     const signup = await ctx.db.get(args.signupId);
@@ -531,22 +469,7 @@ export const deleteSignup = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const userId = extractUserId(identity.tokenIdentifier);
-
-    // Check if user is admin
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_id", (q) => q.eq("_id", userId as Id<"users">))
-      .unique();
-
-    if (!user || user.role !== "ADMIN") {
-      throw new Error("Admin access required");
-    }
+    await requireAdmin(ctx);
 
     // Check if signup exists
     const signup = await ctx.db.get(args.signupId);

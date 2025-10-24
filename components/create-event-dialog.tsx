@@ -115,7 +115,6 @@ export function CreateEventDialog({
                 setFormData({ ...formData, description: e.target.value })
               }
               rows={4}
-              required
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

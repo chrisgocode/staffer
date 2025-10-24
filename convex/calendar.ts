@@ -1,16 +1,7 @@
 import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
-
-function extractUserId(tokenIdentifier: string): string {
-  const parts = tokenIdentifier.split("|");
-  if (parts.length < 2) {
-    throw new Error(
-      `Invalid token format: expected format "provider|userId", got "${tokenIdentifier}"`,
-    );
-  }
-  return parts[1];
-}
+import { getAuthUserId } from "@convex-dev/auth/server";
 
 // Generate a cryptographically secure random token
 function generateSecureToken(): string {
@@ -28,15 +19,13 @@ export const generateCalendarToken = mutation({
     token: v.string(),
   }),
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("No user found");
     }
 
-    const userId = extractUserId(identity.tokenIdentifier);
-
     // Check if user exists and is a student
-    const user = await ctx.db.get(userId as Id<"users">);
+    const user = await ctx.db.get(userId);
     if (!user) {
       throw new Error("User profile not found");
     }
@@ -49,7 +38,7 @@ export const generateCalendarToken = mutation({
     const token = generateSecureToken();
 
     // Update user with new token
-    await ctx.db.patch(userId as Id<"users">, {
+    await ctx.db.patch(userId, {
       calendarToken: token,
     });
 
@@ -68,13 +57,12 @@ export const getMyCalendarUrl = query({
     v.null(),
   ),
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("No user found");
     }
 
-    const userId = extractUserId(identity.tokenIdentifier);
-    const user = await ctx.db.get(userId as Id<"users">);
+    const user = await ctx.db.get(userId);
 
     if (!user || !user.calendarToken) {
       return null;
@@ -114,14 +102,13 @@ export const getScheduledEventsForToken = internalQuery({
     }),
   ),
   handler: async (ctx, args) => {
-    // Find user by calendar token
     const user = await ctx.db
       .query("users")
       .withIndex("by_calendar_token", (q) => q.eq("calendarToken", args.token))
       .unique();
 
     if (!user) {
-      return [];
+      throw new Error("User not found");
     }
 
     // Get all signups for this user

@@ -1,6 +1,8 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
+import { requireAdmin } from "./permissions";
+import { getAuthUserId } from "@convex-dev/auth/server";
 
 const eventSchema = v.object({
   _id: v.id("events"),
@@ -17,21 +19,16 @@ const eventSchema = v.object({
   updatedAt: v.number(),
 });
 
-function extractUserId(tokenIdentifier: string): string {
-  const parts = tokenIdentifier.split("|");
-  if (parts.length < 2) {
-    throw new Error(
-      `Invalid token format: expected format "provider|userId", got "${tokenIdentifier}"`,
-    );
-  }
-  return parts[1];
-}
-
 // Get all events
 export const listEvents = query({
   args: {},
   returns: v.array(eventSchema),
   handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("No user found");
+    }
+
     return await ctx.db.query("events").withIndex("by_start_time").collect();
   },
 });
@@ -71,12 +68,10 @@ export const createEvent = mutation({
   },
   returns: v.id("events"),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("No user found");
     }
-
-    const userId = extractUserId(identity.tokenIdentifier);
 
     if (args.startTime >= args.endTime) {
       throw new Error("Event end time must be after start time");
@@ -89,7 +84,7 @@ export const createEvent = mutation({
       date: args.date,
       startTime: args.startTime,
       endTime: args.endTime,
-      createdBy: userId as Id<"users">,
+      createdBy: userId,
       spotsTotal: args.spotsTotal,
       spotsAvailable: args.spotsAvailable,
       updatedAt: Date.now(),
@@ -112,27 +107,7 @@ export const updateEvent = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const event = await ctx.db.get(args.eventId);
-    if (!event) {
-      throw new Error("Event not found");
-    }
-
-    const userId = extractUserId(identity.tokenIdentifier);
-
-    // Check if user is admin
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_id", (q) => q.eq("_id", userId as Id<"users">))
-      .unique();
-
-    if (!user || user.role !== "ADMIN") {
-      throw new Error("You are not authorized to update this event");
-    }
+    await requireAdmin(ctx);
 
     const updateData: Partial<{
       title: string;
@@ -178,27 +153,7 @@ export const deleteEvent = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const event = await ctx.db.get(args.eventId);
-    if (!event) {
-      throw new Error("Event not found");
-    }
-
-    const userId = extractUserId(identity.tokenIdentifier);
-
-    // Check if user is admin
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_id", (q) => q.eq("_id", userId as Id<"users">))
-      .unique();
-
-    if (!user || user.role !== "ADMIN") {
-      throw new Error("You are not authorized to delete this event");
-    }
+    await requireAdmin(ctx);
 
     await ctx.db.delete(args.eventId);
     return null;
@@ -213,22 +168,7 @@ export const removeStudentFromEvent = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    const userId = extractUserId(identity.tokenIdentifier);
-
-    // Check if user is admin
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_id", (q) => q.eq("_id", userId as Id<"users">))
-      .unique();
-
-    if (!user || user.role !== "ADMIN") {
-      throw new Error("Admin access required");
-    }
+    await requireAdmin(ctx);
 
     // Check if event exists
     const event = await ctx.db.get(args.eventId);

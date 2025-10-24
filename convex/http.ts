@@ -29,8 +29,7 @@ http.route({
     );
 
     if (events.length === 0) {
-      // Could be invalid token or no scheduled events yet
-      // Return empty calendar for better UX
+      return new Response("No scheduled events found", { status: 200 });
     }
 
     // Generate ICS file content

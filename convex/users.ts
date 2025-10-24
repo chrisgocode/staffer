@@ -1,75 +1,34 @@
 import { query, mutation, QueryCtx, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
-import { auth } from "./auth";
-import { Doc, Id } from "./_generated/dataModel";
-
-function extractUserId(tokenIdentifier: string): string {
-  const parts = tokenIdentifier.split("|");
-  if (parts.length < 2) {
-    throw new Error(
-      `Invalid token format: expected format "provider|userId", got "${tokenIdentifier}"`,
-    );
-  }
-  return parts[1];
-}
-
-async function requireAdmin(
-  ctx: QueryCtx | MutationCtx,
-): Promise<Doc<"users">> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
-    throw new Error("Not authenticated");
-  }
-
-  // Extract the userId part from tokenIdentifier (second part between pipes)
-  const userId = extractUserId(identity.tokenIdentifier);
-
-  const currentUser = await ctx.db.get(userId as Id<"users">);
-
-  if (!currentUser || currentUser.role !== "ADMIN") {
-    throw new Error("Admin access required");
-  }
-
-  return currentUser;
-}
+import { Doc } from "./_generated/dataModel";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { requireAdmin } from "./permissions";
 
 export const getCurrentUser = query({
   args: {},
   returns: v.union(
+    v.null(),
     v.object({
       _id: v.id("users"),
       _creationTime: v.number(),
       name: v.optional(v.string()),
       email: v.optional(v.string()),
+      phone: v.optional(v.string()),
+      image: v.optional(v.string()),
+      emailVerificationTime: v.optional(v.number()),
+      phoneVerificationTime: v.optional(v.number()),
+      isAnonymous: v.optional(v.boolean()),
       role: v.optional(v.union(v.literal("ADMIN"), v.literal("STUDENT"))),
+      calendarToken: v.optional(v.string()),
     }),
-    v.null(),
   ),
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      console.log("No identity found");
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
       return null;
     }
 
-    console.log("Identity tokenIdentifier:", identity.tokenIdentifier);
-
-    // Extract the userId part from tokenIdentifier (second part between pipes)
-    const userId = extractUserId(identity.tokenIdentifier);
-    console.log("Extracted userId:", userId);
-
-    const user = await ctx.db.get(userId as Id<"users">);
-
-    console.log("Found user:", user);
-
-    if (!user) return null;
-    return {
-      _id: user._id,
-      _creationTime: user._creationTime,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    };
+    return await ctx.db.get(userId);
   },
 });
 
@@ -89,6 +48,7 @@ export const getAllUsers = query({
     await requireAdmin(ctx);
 
     const users = await ctx.db.query("users").collect();
+
     return users.map((user) => ({
       _id: user._id,
       _creationTime: user._creationTime,
@@ -138,26 +98,13 @@ export const getUsersByRole = query({
     }),
   ),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-
-    // Extract the userId part from tokenIdentifier (second part between pipes)
-    const userId = extractUserId(identity.tokenIdentifier);
-
-    const currentUser = await ctx.db.get(userId as Id<"users">);
-
-    if (!currentUser || currentUser.role !== "ADMIN") {
-      throw new Error("Admin access required");
-    }
+    await requireAdmin(ctx);
 
     const users = await ctx.db
       .query("users")
       .withIndex("by_role", (q) => q.eq("role", args.role))
       .collect();
 
-    // Return only non-sensitive fields
     return users.map((user) => ({
       _id: user._id,
       _creationTime: user._creationTime,
