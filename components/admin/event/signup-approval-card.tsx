@@ -7,6 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Check, X, Mail, Clock } from "lucide-react";
 import type { EventSignup } from "@/lib/types";
 import { Id } from "@/convex/_generated/dataModel";
+import { formatTime } from "@/lib/date-utils";
+import { getInitialsFromName } from "@/lib/name-util";
 
 interface SignupApprovalCardProps {
   signup: EventSignup;
@@ -23,20 +25,6 @@ export function SignupApprovalCard({
   eventStartTime,
   eventEndTime,
 }: SignupApprovalCardProps) {
-  const initials = signup.studentName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase();
-
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(":");
-    const hour = Number.parseInt(hours);
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
-
   const timeslots = signup.timeslots || [];
 
   return (
@@ -47,7 +35,9 @@ export function SignupApprovalCard({
             <AvatarImage
               src={`https://api.dicebear.com/7.x/initials/svg?seed=${signup.studentName}`}
             />
-            <AvatarFallback>{initials}</AvatarFallback>
+            <AvatarFallback>
+              {getInitialsFromName(signup.studentName)}
+            </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-2">

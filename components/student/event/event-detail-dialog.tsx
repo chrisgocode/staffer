@@ -36,7 +36,8 @@ import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { useMutation } from "convex/react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getInitialsFromName } from "@/lib/name-util";
 
 interface EventDetailDialogProps {
   event: Event | null;
@@ -222,12 +223,6 @@ export function EventDetailDialog({
     return `${displayHour}:${minutes} ${ampm}`;
   };
 
-  const getInitials = (fullName?: string) => {
-    if (!fullName) return "S";
-    const parts = fullName.trim().split(/\s+/).slice(0, 2);
-    return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "S";
-  };
-
   return (
     <Dialog
       open={open}
@@ -282,8 +277,11 @@ export function EventDetailDialog({
                   <li key={s._id} className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                       <Avatar>
+                        <AvatarImage
+                          src={`https://api.dicebear.com/7.x/initials/svg?seed=${s.studentName}`}
+                        />
                         <AvatarFallback>
-                          {getInitials(s.studentName)}
+                          {getInitialsFromName(s.studentName)}
                         </AvatarFallback>
                       </Avatar>
                       <div className="truncate">

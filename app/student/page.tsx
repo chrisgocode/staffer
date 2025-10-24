@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { StudentHeader } from "@/components/student-header";
-import { CalendarView } from "@/components/calendar-view";
-import { UpcomingEventsList } from "@/components/upcoming-events-list";
-import { EventDetailDialog } from "@/components/event-detail-dialog";
+import { StudentHeader } from "@/components/student/student-header";
+import { CalendarView } from "@/components/student/calendar-view";
+import { UpcomingEventsList } from "@/components/student/event/upcoming-events-list";
+import { EventDetailDialog } from "@/components/student/event/event-detail-dialog";
 import type { Event } from "@/lib/types";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
