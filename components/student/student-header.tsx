@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -15,6 +16,7 @@ import { api } from "@/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { getInitialsFromName } from "@/lib/name-util";
+import favicon from "@/public/favicon.svg";
 
 export function StudentHeader() {
   const { signOut } = useAuthActions();
@@ -25,8 +27,8 @@ export function StudentHeader() {
   return (
     <header className="border-b border-border bg-card">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-6 w-6 text-primary" />
+        <div className="flex items-center gap-1">
+          <Image src={favicon} alt="NC Event Staffing" width={48} height={48} />
           <h1 className="text-xl font-semibold">NC Event Staffing</h1>
         </div>
         <DropdownMenu>

@@ -28,6 +28,9 @@ const lora = Lora({
 export const metadata: Metadata = {
   title: "NC Event Staffing",
   description: "Manage campus event staffing and volunteer opportunities",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
