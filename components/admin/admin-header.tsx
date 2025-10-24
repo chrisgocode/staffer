@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -15,6 +16,7 @@ import { LogOut, Calendar, Plus } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { getInitialsFromName } from "@/lib/name-util";
 import { useQuery } from "convex/react";
+import favicon from "@/public/favicon.svg";
 
 interface AdminHeaderProps {
   onCreateEvent: () => void;
@@ -29,8 +31,8 @@ export function AdminHeader({ onCreateEvent }: AdminHeaderProps) {
   return (
     <header className="border-b border-border bg-card">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-6 w-6 text-primary" />
+        <div className="flex items-center gap-1">
+          <Image src={favicon} alt="NC Event Staffing" width={48} height={48} />
           <h1 className="text-xl font-semibold">NC Event Staffing</h1>
           <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
             Admin

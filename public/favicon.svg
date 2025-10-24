@@ -1,0 +1,46 @@
+    <svg
+      viewBox="0 0 100 100"
+      xmlns="http://www.w3.org/2000/svg"
+      className="w-full h-full"
+    >
+      {/* Blueberry body */}
+      <circle cx="50" cy="55" r="35" fill="#5B7BE9" />
+      
+      {/* Blueberry shine */}
+      <ellipse cx="38" cy="45" rx="12" ry="15" fill="#8BA4F3" opacity="0.6" />
+      
+      {/* Stem/crown at top */}
+      <g transform="translate(50, 20)">
+        {/* Center leaf */}
+        <ellipse cx="0" cy="0" rx="4" ry="8" fill="#4A7C59" />
+        {/* Left leaf */}
+        <ellipse cx="-7" cy="2" rx="3.5" ry="7" fill="#4A7C59" transform="rotate(-25 -7 2)" />
+        {/* Right leaf */}
+        <ellipse cx="7" cy="2" rx="3.5" ry="7" fill="#4A7C59" transform="rotate(25 7 2)" />
+      </g>
+      
+      {/* Left eye */}
+      <g transform="translate(38, 52)">
+        <ellipse cx="0" cy="0" rx="6" ry="8" fill="#2C3E50" />
+        <circle cx="1.5" cy="-2" r="2.5" fill="white" />
+      </g>
+      
+      {/* Right eye */}
+      <g transform="translate(62, 52)">
+        <ellipse cx="0" cy="0" rx="6" ry="8" fill="#2C3E50" />
+        <circle cx="1.5" cy="-2" r="2.5" fill="white" />
+      </g>
+      
+      {/* Cute smile */}
+      <path
+        d="M 42 66 Q 50 72 58 66"
+        stroke="#2C3E50"
+        strokeWidth="2.5"
+        fill="none"
+        strokeLinecap="round"
+      />
+      
+      {/* Rosy cheeks */}
+      <circle cx="30" cy="60" r="5" fill="#FF9ECD" opacity="0.5" />
+      <circle cx="70" cy="60" r="5" fill="#FF9ECD" opacity="0.5" />
+    </svg>
