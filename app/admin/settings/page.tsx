@@ -64,7 +64,7 @@ export default function Settings() {
         <div>
           <div className="flex flex-row justify-between max-w-3xl mx-auto mb-6">
             <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
-            <Button variant="ghost" onClick={() => router.push("/student")}>
+            <Button variant="ghost" onClick={() => router.push("/admin")}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Dashboard
             </Button>
