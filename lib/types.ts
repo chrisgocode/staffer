@@ -29,6 +29,7 @@ export interface EventSignup {
   studentId: Id<"users">;
   studentName: string;
   studentEmail: string;
+  studentImageUrl?: string;
   status: "PENDING" | "SCHEDULED";
   timeslots: Array<{
     startTime: string;

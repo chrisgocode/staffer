@@ -32,12 +32,13 @@ export function SignupApprovalCard({
       <CardContent className="p-4">
         <div className="flex items-start gap-4">
           <Avatar className="h-12 w-12">
-            <AvatarImage
-              src={`https://api.dicebear.com/7.x/initials/svg?seed=${signup.studentName}`}
-            />
-            <AvatarFallback>
-              {getInitialsFromName(signup.studentName)}
-            </AvatarFallback>
+            {signup.studentImageUrl ? (
+              <AvatarImage src={signup.studentImageUrl} />
+            ) : (
+              <AvatarFallback>
+                {getInitialsFromName(signup.studentName)}
+              </AvatarFallback>
+            )}
           </Avatar>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-2">

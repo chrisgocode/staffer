@@ -277,12 +277,13 @@ export function EventDetailDialog({
                   <li key={s._id} className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                       <Avatar>
-                        <AvatarImage
-                          src={`https://api.dicebear.com/7.x/initials/svg?seed=${s.studentName}`}
-                        />
-                        <AvatarFallback>
-                          {getInitialsFromName(s.studentName)}
-                        </AvatarFallback>
+                        {s.studentImageUrl ? (
+                          <AvatarImage src={s.studentImageUrl} />
+                        ) : (
+                          <AvatarFallback>
+                            {getInitialsFromName(s.studentName)}
+                          </AvatarFallback>
+                        )}
                       </Avatar>
                       <div className="truncate">
                         <div className="text-sm font-medium truncate">

@@ -205,6 +205,7 @@ export const getEventSignups = query({
       studentId: v.id("users"),
       studentName: v.string(),
       studentEmail: v.string(),
+      studentImageUrl: v.optional(v.string()),
       status: v.union(v.literal("PENDING"), v.literal("SCHEDULED")),
       timeslots: v.array(
         v.object({ startTime: v.string(), endTime: v.string() }),
@@ -240,7 +241,29 @@ export const getEventSignups = query({
       .withIndex("by_event_id", (q) => q.eq("eventId", args.eventId))
       .collect();
 
-    return signups;
+    // this will collect all imageUrls for each user
+    const enrichedSignups = await Promise.all(
+      signups.map(async (signup) => {
+        const student = await ctx.db.get(signup.studentId);
+        let studentImageUrl: string | undefined = undefined;
+
+        if (student) {
+          if (student.imageId) {
+            studentImageUrl =
+              (await ctx.storage.getUrl(student.imageId)) ?? undefined;
+          } else if (student.image) {
+            studentImageUrl = student.image;
+          }
+        }
+
+        return {
+          ...signup,
+          studentImageUrl,
+        };
+      }),
+    );
+
+    return enrichedSignups;
   },
 });
 
@@ -256,6 +279,7 @@ export const getPublicEventSignups = query({
       eventId: v.id("events"),
       studentId: v.id("users"),
       studentName: v.string(),
+      studentImageUrl: v.optional(v.string()),
       status: v.union(v.literal("PENDING"), v.literal("SCHEDULED")),
       timeslots: v.array(
         v.object({ startTime: v.string(), endTime: v.string() }),
@@ -274,15 +298,35 @@ export const getPublicEventSignups = query({
       .withIndex("by_event_id", (q) => q.eq("eventId", args.eventId))
       .collect();
 
-    return signups.map((s) => ({
-      _id: s._id,
-      _creationTime: s._creationTime,
-      eventId: s.eventId,
-      studentId: s.studentId,
-      studentName: s.studentName,
-      status: s.status,
-      timeslots: s.timeslots,
-    }));
+    // this will collect all imageUrls for each user
+    const enrichedSignups = await Promise.all(
+      signups.map(async (signup) => {
+        const student = await ctx.db.get(signup.studentId);
+        let studentImageUrl: string | undefined = undefined;
+
+        if (student) {
+          if (student.imageId) {
+            studentImageUrl =
+              (await ctx.storage.getUrl(student.imageId)) ?? undefined;
+          } else if (student.image) {
+            studentImageUrl = student.image;
+          }
+        }
+
+        return {
+          _id: signup._id,
+          _creationTime: signup._creationTime,
+          eventId: signup.eventId,
+          studentId: signup.studentId,
+          studentName: signup.studentName,
+          status: signup.status,
+          timeslots: signup.timeslots,
+          studentImageUrl,
+        };
+      }),
+    );
+
+    return enrichedSignups;
   },
 });
 
