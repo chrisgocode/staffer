@@ -24,6 +24,7 @@ import { api } from "@/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { Spinner } from "@/components/ui/spinner";
 import { useEventManagement } from "@/hooks/use-event-management";
+import { Id } from "@/convex/_generated/dataModel";
 
 export default function EventDetailPage() {
   const routeParams = useParams<{ id: string }>();
@@ -50,7 +51,7 @@ export default function EventDetailPage() {
     handleRemove,
     confirmRemoveStudent,
     handleDeleteEvent,
-  } = useEventManagement(event?._id || ("" as any));
+  } = useEventManagement(event?._id || ("" as Id<"events">));
 
   useEffect(() => {
     setEditDialogOpen(searchParams.get("edit") === "1");

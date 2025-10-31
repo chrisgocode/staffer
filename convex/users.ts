@@ -1,4 +1,4 @@
-import { query, mutation, QueryCtx, MutationCtx } from "./_generated/server";
+import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireAdmin } from "./permissions";
@@ -14,6 +14,8 @@ export const getCurrentUser = query({
       email: v.optional(v.string()),
       phone: v.optional(v.string()),
       image: v.optional(v.string()),
+      imageId: v.optional(v.id("_storage")),
+      imageUrl: v.optional(v.string()),
       emailVerificationTime: v.optional(v.number()),
       phoneVerificationTime: v.optional(v.number()),
       role: v.optional(v.union(v.literal("ADMIN"), v.literal("STUDENT"))),
@@ -26,7 +28,23 @@ export const getCurrentUser = query({
       return null;
     }
 
-    return await ctx.db.get(userId);
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      return null;
+    }
+
+    // Resolve avatar URL
+    let imageUrl: string | undefined = undefined;
+    if (user.imageId) {
+      imageUrl = (await ctx.storage.getUrl(user.imageId)) ?? undefined;
+    } else if (user.image) {
+      imageUrl = user.image;
+    }
+
+    return {
+      ...user,
+      imageUrl,
+    };
   },
 });
 
@@ -110,5 +128,66 @@ export const getUsersByRole = query({
       email: user.email,
       role: user.role,
     }));
+  },
+});
+
+export const generateUploadUrl = mutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const updateUserAvatar = mutation({
+  args: { storageId: v.id("_storage") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.patch(userId, {
+      imageId: args.storageId,
+    });
+
+    return null;
+  },
+});
+
+export const deleteUserAvatar = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.patch(userId, {
+      imageId: undefined,
+    });
+
+    return null;
+  },
+});
+
+export const updateUserName = mutation({
+  args: {
+    name: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.patch(userId, {
+      name: args.name,
+    });
+
+    return null;
   },
 });

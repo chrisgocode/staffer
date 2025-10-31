@@ -8,6 +8,7 @@ import "./globals.css";
 import { Plus_Jakarta_Sans, IBM_Plex_Mono, Lora } from "next/font/google";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import ConvexClientProvider from "@/components/ConvexClientProvider";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -40,11 +41,20 @@ export default function RootLayout({
 }>) {
   return (
     <ConvexAuthNextjsServerProvider>
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
         <body
           className={`${plusJakartaSans.variable} ${ibmPlexMono.variable} ${lora.variable} font-sans antialiased`}
         >
-          <ConvexClientProvider>{children}</ConvexClientProvider>
+          <ConvexClientProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              {children}
+            </ThemeProvider>
+          </ConvexClientProvider>
           <Toaster />
           <Analytics />
           <SpeedInsights />

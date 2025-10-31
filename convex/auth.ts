@@ -1,5 +1,6 @@
 import Google from "@auth/core/providers/google";
 import { convexAuth } from "@convex-dev/auth/server";
+import { Doc } from "./_generated/dataModel";
 
 // Generate a cryptographically secure random token
 function generateSecureToken(): string {
@@ -17,7 +18,6 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       try {
         const email = args.profile.email;
 
-        // Validate @bu.edu domain
         // Validate @bu.edu domain
         if (!email) {
           console.log("ERROR: No email found in profile");
@@ -51,7 +51,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         const userId = args.userId;
 
         // Create or update user profile using userId from args
-        const existingProfile = await ctx.db
+        const existingProfile: Doc<"users"> = await ctx.db
           .query("users")
           .filter((q) => q.eq(q.field("_id"), userId))
           .unique();
@@ -66,6 +66,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           if (role === "STUDENT" && !existingProfile.calendarToken) {
             updateData.calendarToken = generateSecureToken();
           }
+
           await ctx.db.patch(existingProfile._id, updateData);
         } else {
           console.log("Creating new profile for user:", userId);
