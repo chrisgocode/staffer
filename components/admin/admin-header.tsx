@@ -28,7 +28,6 @@ export function AdminHeader({ onCreateEvent }: AdminHeaderProps) {
   const { signOut } = useAuthActions();
   const router = useRouter();
   const user = useQuery(api.users.getCurrentUser);
-  const userAvatar = useQuery(api.users.getUserAvatar);
 
   if (!user) return null;
 
@@ -59,8 +58,8 @@ export function AdminHeader({ onCreateEvent }: AdminHeaderProps) {
                   className="relative h-10 w-10 rounded-full"
                 >
                   <Avatar>
-                    {userAvatar ? (
-                      <AvatarImage src={userAvatar} />
+                    {user.imageUrl ? (
+                      <AvatarImage src={user.imageUrl} />
                     ) : (
                       <AvatarFallback>
                         {getInitialsFromName(user.name)}

@@ -24,7 +24,6 @@ export function StudentHeader() {
   const { signOut } = useAuthActions();
   const router = useRouter();
   const user = useQuery(api.users.getCurrentUser);
-  const userAvatar = useQuery(api.users.getUserAvatar);
 
   if (!user || user == undefined) return null;
 
@@ -47,8 +46,8 @@ export function StudentHeader() {
                 className="relative h-10 w-10 rounded-full"
               >
                 <Avatar>
-                  {userAvatar ? (
-                    <AvatarImage src={userAvatar} />
+                  {user.imageUrl ? (
+                    <AvatarImage src={user.imageUrl} />
                   ) : (
                     <AvatarFallback>
                       {getInitialsFromName(user.name)}

@@ -13,7 +13,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import AvatarUpload from "@/components/student/settings/avatar-upload";
+import AvatarUpload from "@/components/ui/avatar-upload";
 import { StudentHeader } from "@/components/student/student-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -151,7 +151,7 @@ export default function Settings() {
                 <p className="text-sm font-medium text-muted-foreground">
                   Update your photo
                 </p>
-                <AvatarUpload />
+                <AvatarUpload imageUrl={user.imageUrl} />
               </div>
             </div>
             <div className="space-y-2">

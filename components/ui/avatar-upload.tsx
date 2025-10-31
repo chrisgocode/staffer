@@ -5,14 +5,13 @@ import { TrashIcon, UploadIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { api } from "@/convex/_generated/api";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { toast } from "sonner";
 
-export default function AvatarUpload() {
+export default function AvatarUpload({ imageUrl }: { imageUrl?: string }) {
   const generateUploadUrl = useMutation(api.users.generateUploadUrl);
   const updateUserAvatar = useMutation(api.users.updateUserAvatar);
   const deleteUserAvatar = useMutation(api.users.deleteUserAvatar);
-  const avatarUrl = useQuery(api.users.getUserAvatar);
 
   const handleAvatarUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -49,9 +48,9 @@ export default function AvatarUpload() {
 
   return (
     <div className="relative w-32 h-32 rounded-full overflow-hidden">
-      {avatarUrl ? (
+      {imageUrl ? (
         <Image
-          src={avatarUrl}
+          src={imageUrl}
           alt="User Avatar"
           width={128}
           height={128}
@@ -73,7 +72,7 @@ export default function AvatarUpload() {
           className="sr-only"
           onChange={handleAvatarUpload}
         />
-        {avatarUrl && (
+        {imageUrl && (
           <div className="absolute inset-0 bg-muted/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             <Button
               variant="ghost"
