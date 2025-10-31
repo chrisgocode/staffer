@@ -191,34 +191,3 @@ export const updateUserName = mutation({
     return null;
   },
 });
-
-export const getUserAvatar = query({
-  args: {},
-  returns: v.union(v.string(), v.null()),
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) {
-      return null;
-    }
-
-    const user = await ctx.db.get(userId);
-    if (!user || !user.imageId) {
-      return null;
-    }
-
-    // Priority 1: Custom uploaded avatar (imageId)
-    if (user.imageId) {
-      const imageUrl = await ctx.storage.getUrl(user.imageId);
-      console.log("Returning custom uploaded avatar: " + imageUrl);
-      return imageUrl;
-    }
-
-    // Priority 2: Google profile image (image)
-    if (user.image) {
-      console.log("Returning Google profile image: " + user.image);
-      return user.image;
-    }
-
-    return null;
-  },
-});
