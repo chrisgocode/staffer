@@ -11,6 +11,9 @@ export default defineSchema({
   users: defineTable({
     name: v.string(),
     image: v.optional(v.string()),
+    imageId: v.optional(
+      v.id("_storage"), // Convex storage ID
+    ),
     email: v.string(),
     emailVerificationTime: v.optional(v.number()),
     phone: v.optional(v.string()),
