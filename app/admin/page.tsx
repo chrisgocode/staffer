@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { AdminCalendarView } from "@/components/admin/admin-calendar-view";
@@ -23,6 +24,7 @@ import type { Event } from "@/lib/types";
 import { Id } from "@/convex/_generated/dataModel";
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const user = useQuery(api.users.getCurrentUser);
   const events = useQuery(api.events.listEvents) ?? [];
   const deleteEvent = useMutation(api.events.deleteEvent);
@@ -36,9 +38,9 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== "ADMIN")) {
-      window.location.href = "/";
+      router.push("/");
     }
-  }, [user, isLoading]);
+  }, [user, isLoading, router]);
 
   if (isLoading || !user) {
     return (
@@ -66,7 +68,7 @@ export default function AdminDashboard() {
   };
 
   const handleEventClick = (event: Event) => {
-    window.location.href = `/admin/event/${event._id}`;
+    router.push(`/admin/event/${event._id}`);
   };
 
   return (

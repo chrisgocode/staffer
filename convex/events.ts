@@ -32,6 +32,29 @@ export const listEvents = query({
   },
 });
 
+export const listUpcomingEvents = query({
+  args: {},
+  returns: v.array(eventSchema),
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("No user found");
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split("T")[0];
+
+    const events = await ctx.db
+      .query("events")
+      .withIndex("by_date", (q) => q.gte("date", todayStr))
+      .order("asc")
+      .collect();
+
+    return events;
+  },
+});
+
 // Get events by date range
 export const getEventsByDateRange = query({
   args: {

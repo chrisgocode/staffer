@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { StudentHeader } from "@/components/student/student-header";
 import { CalendarView } from "@/components/student/calendar-view";
 import { UpcomingEventsList } from "@/components/student/event/upcoming-events-list";
@@ -8,21 +9,30 @@ import { EventDetailDialog } from "@/components/student/event/event-detail-dialo
 import type { Event } from "@/lib/types";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useEffect } from "react";
 
 export default function StudentDashboard() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const user = useQuery(api.users.getCurrentUser);
   const rawEvents = useQuery(api.events.listEvents);
   const events = useMemo(() => rawEvents ?? [], [rawEvents]);
   const userSignups = useQuery(api.signups.getUserSignups) ?? [];
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
   const isLoading = user === undefined;
+
+  // Derive state from URL instead of storing in state
+  const eventId = searchParams.get("id");
+  const selectedEvent = useMemo(() => {
+    if (!eventId || events.length === 0) return null;
+    return events.find((e) => e._id === eventId) ?? null;
+  }, [eventId, events]);
+  const dialogOpen = !!selectedEvent;
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== "STUDENT")) {
-      window.location.href = "/";
+      router.push("/");
     }
-  }, [user, isLoading]);
+  }, [user, isLoading, router]);
 
   if (isLoading || !user) {
     return (
@@ -33,15 +43,12 @@ export default function StudentDashboard() {
   }
 
   const handleEventClick = (event: Event) => {
-    setSelectedEvent(event);
-    setDialogOpen(true);
-    window.history.pushState({}, "", `/student?id=${event._id}`);
+    router.push(`/student?id=${event._id}`, { scroll: false });
   };
 
   const handleDialogClose = (open: boolean) => {
-    setDialogOpen(open);
     if (!open) {
-      window.history.pushState({}, "", "/student");
+      router.push("/student", { scroll: false });
     }
   };
 
