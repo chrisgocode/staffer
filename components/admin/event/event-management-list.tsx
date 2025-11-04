@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Calendar,
   Clock,
@@ -13,6 +14,10 @@ import {
   Trash2,
   Edit,
   SlidersHorizontal,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -21,6 +26,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { toast } from "sonner";
 import type { Event } from "@/lib/types";
 import { Id } from "@/convex/_generated/dataModel";
 
@@ -40,6 +46,9 @@ export function EventManagementList({
   const router = useRouter();
   const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
   const [showNeedsStaff, setShowNeedsStaff] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageInput, setPageInput] = useState("1");
+  const EVENTS_PER_PAGE = 4;
 
   const parseLocalDate = (dateStr: string) => {
     const [y, m, d] = dateStr.split("-").map((v) => Number.parseInt(v));
@@ -115,9 +124,41 @@ export function EventManagementList({
     setSelectedMonths((prev) =>
       prev.includes(month) ? prev.filter((m) => m !== month) : [...prev, month],
     );
+    setCurrentPage(1);
+    setPageInput("1");
   };
 
   const activeFilterCount = selectedMonths.length + (showNeedsStaff ? 1 : 0);
+
+  const totalPages = Math.ceil(upcomingEvents.length / EVENTS_PER_PAGE);
+  const startIndex = (currentPage - 1) * EVENTS_PER_PAGE;
+  const endIndex = startIndex + EVENTS_PER_PAGE;
+  const paginatedEvents = upcomingEvents.slice(startIndex, endIndex);
+
+  const navigateToPage = (value: string) => {
+    const pageNum = Number.parseInt(value);
+
+    if (isNaN(pageNum) || value.trim() === "") {
+      toast.error("Please enter a valid number");
+      setPageInput(currentPage.toString());
+      return;
+    }
+
+    if (pageNum < 1 || pageNum > totalPages) {
+      toast.error(`Please enter a number between 1 and ${totalPages}`);
+      setPageInput(currentPage.toString());
+      return;
+    }
+
+    setCurrentPage(pageNum);
+    setPageInput(pageNum.toString());
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      navigateToPage(pageInput);
+    }
+  };
 
   return (
     <Card>
@@ -170,9 +211,11 @@ export function EventManagementList({
                     <Checkbox
                       id="needs-staff"
                       checked={showNeedsStaff}
-                      onCheckedChange={(checked) =>
-                        setShowNeedsStaff(checked as boolean)
-                      }
+                      onCheckedChange={(checked) => {
+                        setShowNeedsStaff(checked as boolean);
+                        setCurrentPage(1);
+                        setPageInput("1");
+                      }}
                     />
                     <Label
                       htmlFor="needs-staff"
@@ -190,6 +233,8 @@ export function EventManagementList({
                     onClick={() => {
                       setSelectedMonths([]);
                       setShowNeedsStaff(false);
+                      setCurrentPage(1);
+                      setPageInput("1");
                     }}
                   >
                     Clear Filters
@@ -208,14 +253,14 @@ export function EventManagementList({
               : "No upcoming events"}
           </p>
         ) : (
-          upcomingEvents.map((event) => {
+          paginatedEvents.map((event) => {
             const pendingCount = getPendingCount(event._id);
             const filledSpots = event.spotsTotal - event.spotsAvailable;
 
             return (
               <div
                 key={event._id}
-                onClick={() => router.push(`/admin/event/${event._id}`)}
+                onClick={() => onEventClick(event)}
                 className="p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer"
               >
                 <div className="flex items-start justify-between gap-2 mb-3">
@@ -279,6 +324,78 @@ export function EventManagementList({
               </div>
             );
           })
+        )}
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 pt-4 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setCurrentPage(1);
+                setPageInput("1");
+              }}
+              disabled={currentPage === 1}
+              className="px-2"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const newPage = currentPage - 1;
+                setCurrentPage(newPage);
+                setPageInput(newPage.toString());
+              }}
+              disabled={currentPage === 1}
+              className="px-2"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+
+            <div className="flex items-center gap-2">
+              <Input
+                type="text"
+                value={pageInput}
+                onChange={(e) => setPageInput(e.target.value)}
+                onBlur={() => navigateToPage(pageInput)}
+                onKeyDown={handleKeyDown}
+                className="w-12 h-8 text-center"
+              />
+              <span className="text-sm text-muted-foreground">
+                of {totalPages}
+              </span>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const newPage = currentPage + 1;
+                setCurrentPage(newPage);
+                setPageInput(newPage.toString());
+              }}
+              disabled={currentPage === totalPages}
+              className="px-2"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setCurrentPage(totalPages);
+                setPageInput(totalPages.toString());
+              }}
+              disabled={currentPage === totalPages}
+              className="px-2"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>
