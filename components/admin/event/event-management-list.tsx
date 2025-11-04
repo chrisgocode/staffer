@@ -260,7 +260,7 @@ export function EventManagementList({
             return (
               <div
                 key={event._id}
-                onClick={() => router.push(`/admin/event/${event._id}`)}
+                onClick={() => onEventClick(event)}
                 className="p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer"
               >
                 <div className="flex items-start justify-between gap-2 mb-3">
