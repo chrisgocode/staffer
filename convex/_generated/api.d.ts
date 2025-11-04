@@ -13,6 +13,8 @@ import type * as calendar from "../calendar.js";
 import type * as events from "../events.js";
 import type * as http from "../http.js";
 import type * as permissions from "../permissions.js";
+import type * as schedule_parse from "../schedule/parse.js";
+import type * as schedule_schedule from "../schedule/schedule.js";
 import type * as signups from "../signups.js";
 import type * as users from "../users.js";
 
@@ -36,6 +38,8 @@ declare const fullApi: ApiFromModules<{
   events: typeof events;
   http: typeof http;
   permissions: typeof permissions;
+  "schedule/parse": typeof schedule_parse;
+  "schedule/schedule": typeof schedule_schedule;
   signups: typeof signups;
   users: typeof users;
 }>;

@@ -2,6 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireAdmin } from "./permissions";
+import { internal } from "./_generated/api";
 
 export const getCurrentUser = query({
   args: {},
@@ -20,6 +21,21 @@ export const getCurrentUser = query({
       phoneVerificationTime: v.optional(v.number()),
       role: v.optional(v.union(v.literal("ADMIN"), v.literal("STUDENT"))),
       calendarToken: v.optional(v.string()),
+      scheduleFileId: v.optional(v.id("_storage")),
+      classSchedule: v.optional(
+        v.array(
+          v.object({
+            courseCode: v.string(),
+            section: v.string(),
+            description: v.string(),
+            days: v.string(),
+            startTime: v.string(),
+            endTime: v.string(),
+            dates: v.string(),
+            room: v.string(),
+          }),
+        ),
+      ),
     }),
   ),
   handler: async (ctx) => {
@@ -189,5 +205,83 @@ export const updateUserName = mutation({
     });
 
     return null;
+  },
+});
+
+export const uploadSchedule = mutation({
+  args: { storageId: v.id("_storage") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not found");
+    }
+
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Delete old schedule file if it exists
+    if (user.scheduleFileId) {
+      await ctx.storage.delete(user.scheduleFileId);
+    }
+
+    await ctx.db.patch(userId, {
+      scheduleFileId: args.storageId,
+    });
+
+    // Trigger PDF parsing in the background
+    await ctx.scheduler.runAfter(0, internal.schedule.parse.parseSchedulePDF, {
+      userId,
+      storageId: args.storageId,
+    });
+
+    return null;
+  },
+});
+
+export const deleteSchedule = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not found");
+    }
+
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Delete the schedule file from storage
+    if (user.scheduleFileId) {
+      await ctx.storage.delete(user.scheduleFileId);
+    }
+
+    await ctx.db.patch(userId, {
+      scheduleFileId: undefined,
+    });
+
+    return null;
+  },
+});
+
+export const getScheduleUrl = query({
+  args: {},
+  returns: v.union(v.null(), v.string()),
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      return null;
+    }
+
+    const user = await ctx.db.get(userId);
+    if (!user || !user.scheduleFileId) {
+      return null;
+    }
+
+    return await ctx.storage.getUrl(user.scheduleFileId);
   },
 });

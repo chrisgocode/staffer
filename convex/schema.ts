@@ -20,6 +20,21 @@ export default defineSchema({
     phoneVerificationTime: v.optional(v.number()),
     role: v.optional(v.union(v.literal("ADMIN"), v.literal("STUDENT"))),
     calendarToken: v.optional(v.string()),
+    scheduleFileId: v.optional(v.id("_storage")),
+    classSchedule: v.optional(
+      v.array(
+        v.object({
+          courseCode: v.string(),
+          section: v.string(),
+          description: v.string(),
+          days: v.string(),
+          startTime: v.string(),
+          endTime: v.string(),
+          dates: v.string(),
+          room: v.string(),
+        }),
+      ),
+    ),
   })
     .index("email", ["email"])
     .index("by_role", ["role"])
