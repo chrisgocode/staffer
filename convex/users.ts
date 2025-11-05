@@ -25,14 +25,10 @@ export const getCurrentUser = query({
       classSchedule: v.optional(
         v.array(
           v.object({
-            courseCode: v.string(),
-            section: v.string(),
-            description: v.string(),
             days: v.string(),
             startTime: v.string(),
             endTime: v.string(),
             dates: v.string(),
-            room: v.string(),
           }),
         ),
       ),
@@ -231,7 +227,6 @@ export const uploadSchedule = mutation({
       scheduleFileId: args.storageId,
     });
 
-    // Trigger PDF parsing in the background
     await ctx.scheduler.runAfter(0, internal.schedule.parse.parseSchedulePDF, {
       userId,
       storageId: args.storageId,

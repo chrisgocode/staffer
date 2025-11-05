@@ -6,14 +6,10 @@ import { internal } from "../_generated/api";
 import { PDFParse } from "pdf-parse";
 
 interface ClassSchedule {
-  courseCode: string;
-  section: string;
-  description: string;
   days: string;
   startTime: string;
   endTime: string;
   dates: string;
-  room: string;
 }
 
 function parseScheduleText(text: string): ClassSchedule[] {
@@ -21,27 +17,21 @@ function parseScheduleText(text: string): ClassSchedule[] {
   const lines = text.split("\n");
   let currentClass: Partial<ClassSchedule> = {};
 
+  console.log("starting loop through pdf lines");
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
 
-    // Course code pattern (e.g., CASCS 132, CASPS 370)
-    if (/^[A-Z]{3,6}[A-Z]{2}\s+\d{3}$/.test(line)) {
-      // Save previous class if exists
-      if (currentClass.courseCode) {
+    if (line === "") {
+      continue;
+    }
+
+    // Days
+    if (line.startsWith("Days:")) {
+      if (Object.keys(currentClass).length > 0) {
         schedule.push(currentClass as ClassSchedule);
       }
-      currentClass = { courseCode: line };
-    }
-    // Section
-    else if (line.startsWith("Section:")) {
-      currentClass.section = line.replace("Section:", "").trim();
-    }
-    // Description
-    else if (line.startsWith("Description:")) {
-      currentClass.description = line.replace("Description:", "").trim();
-    }
-    // Days
-    else if (line.startsWith("Days:")) {
+      // Start a new class
+      currentClass = {};
       currentClass.days = line.replace("Days:", "").trim();
     }
     // Start time
@@ -52,21 +42,17 @@ function parseScheduleText(text: string): ClassSchedule[] {
     else if (line.startsWith("End:")) {
       currentClass.endTime = line.replace("End:", "").trim();
     }
-    // Room
-    else if (line.startsWith("Room:")) {
-      currentClass.room = line.replace("Room:", "").trim();
-    }
     // Dates
     else if (line.startsWith("Dates:")) {
       currentClass.dates = line.replace("Dates:", "").trim();
     }
   }
 
-  // Add the last class
-  if (currentClass.courseCode) {
+  if (Object.keys(currentClass).length > 0) {
     schedule.push(currentClass as ClassSchedule);
   }
 
+  console.log(schedule);
   return schedule;
 }
 

@@ -10,14 +10,10 @@ export const storeClassSchedule = internalMutation({
     userId: v.id("users"),
     classSchedule: v.array(
       v.object({
-        courseCode: v.string(),
-        section: v.string(),
-        description: v.string(),
         days: v.string(),
         startTime: v.string(),
         endTime: v.string(),
         dates: v.string(),
-        room: v.string(),
       }),
     ),
   },
@@ -114,14 +110,10 @@ export const getStaffMembers = query({
       classSchedule: v.optional(
         v.array(
           v.object({
-            courseCode: v.string(),
-            section: v.string(),
-            description: v.string(),
             days: v.string(),
             startTime: v.string(),
             endTime: v.string(),
             dates: v.string(),
-            room: v.string(),
           }),
         ),
       ),
