@@ -6,6 +6,27 @@ interface BlockedTimeOverlayProps {
   dayIndex: number;
 }
 
+/**
+ * Clamp a time string to the valid schedule range (08:00 - 21:00)
+ */
+function clampTimeToScheduleRange(time: string): string {
+  const [hours, minutes] = time.split(":").map(Number);
+  const totalMinutes = hours * 60 + minutes;
+
+  // Clamp to 8 AM (480 minutes) - 9 PM (1260 minutes)
+  const minMinutes = 8 * 60; // 480
+  const maxMinutes = 21 * 60; // 1260
+  const clampedMinutes = Math.max(
+    minMinutes,
+    Math.min(totalMinutes, maxMinutes),
+  );
+
+  const clampedHours = Math.floor(clampedMinutes / 60);
+  const clampedMins = clampedMinutes % 60;
+
+  return `${clampedHours.toString().padStart(2, "0")}:${clampedMins.toString().padStart(2, "0")}`;
+}
+
 export function BlockedTimeOverlay({
   blockedRanges,
   dayIndex,
@@ -15,7 +36,16 @@ export function BlockedTimeOverlay({
       {blockedRanges
         .filter((range) => range.dayOfWeek === dayIndex)
         .map((range, index) => {
-          const position = getShiftPosition(range.startTime, range.endTime);
+          // Clamp times to valid schedule range before calculating position
+          const clampedStart = clampTimeToScheduleRange(range.startTime);
+          const clampedEnd = clampTimeToScheduleRange(range.endTime);
+
+          // Skip if clamped times are invalid (e.g., start >= end after clamping)
+          if (clampedStart >= clampedEnd) {
+            return null;
+          }
+
+          const position = getShiftPosition(clampedStart, clampedEnd);
           return (
             <div
               key={`${range.dayOfWeek}-${range.startTime}-${index}`}

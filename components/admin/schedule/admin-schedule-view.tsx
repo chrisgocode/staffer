@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { getWeekDates } from "@/lib/schedule-utils";
 import {
@@ -24,18 +24,26 @@ export function StaffScheduleCalendar() {
   const [isPublishing, setIsPublishing] = useState(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const hasInitializedRef = useRef(false);
 
   const weekDates = getWeekDates(weekOffset);
 
   const { publishedShifts, staffMembers, publishSchedule, isLoading } =
     useScheduleData(selectedSemester);
 
-  // Initialize local shifts from published schedule only when empty
+  // Reset initialization when semester changes
   useEffect(() => {
-    if (shifts.length === 0) {
+    hasInitializedRef.current = false;
+    setShifts([]);
+  }, [selectedSemester]);
+
+  // Initialize local shifts from published schedule only once on initial load
+  useEffect(() => {
+    if (!hasInitializedRef.current && publishedShifts.length > 0) {
       setShifts(publishedShifts);
+      hasInitializedRef.current = true;
     }
-  }, [publishedShifts, shifts.length]);
+  }, [publishedShifts]);
 
   const dragDropHandlers = useShiftDragDrop({
     shifts,
