@@ -19,6 +19,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { getInitialsFromName } from "@/lib/name-util";
 import { useRouter } from "next/navigation";
 import favicon from "@/public/favicon.svg";
+import Link from "next/link";
 
 export function StudentHeader() {
   const { signOut } = useAuthActions();
@@ -35,7 +36,14 @@ export function StudentHeader() {
     <header className="border-b border-border bg-card">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         <div className="flex items-center gap-1">
-          <Image src={favicon} alt="NC Event Staffing" width={48} height={48} />
+          <Link href="/student">
+            <Image
+              src={favicon}
+              alt="NC Event Staffing"
+              width={48}
+              height={48}
+            />
+          </Link>
           <h1 className="text-xl font-semibold">NC Event Staffing</h1>
         </div>
         <div className="flex flex-row gap-2">
