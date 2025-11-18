@@ -41,3 +41,9 @@ yarn-error.log*
 next-env.d.ts
 
 TODO.md
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.python-version

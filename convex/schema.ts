@@ -87,4 +87,16 @@ export default defineSchema({
     .index("by_schedule_id", ["scheduleId"])
     .index("by_schedule_and_day", ["scheduleId", "dayOfWeek"])
     .index("by_schedule_and_user", ["scheduleId", "userId"]),
+
+  holidays: defineTable({
+    date: v.string(),
+    name: v.string(),
+    semester: v.optional(v.string()),
+    isMonday: v.boolean(),
+    isSubstitution: v.optional(v.boolean()),
+    scrapedAt: v.number(),
+  })
+    .index("by_date", ["date"])
+    .index("by_semester", ["semester"])
+    .index("by_monday", ["isMonday"]),
 });

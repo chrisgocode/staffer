@@ -1,4 +1,9 @@
-import { query, mutation, internalQuery } from "./_generated/server";
+import {
+  query,
+  mutation,
+  internalQuery,
+  internalMutation,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -154,5 +159,85 @@ export const getScheduledEventsForToken = internalQuery({
       timeslots: Array<{ startTime: string; endTime: string }>;
       eventUpdatedAt: number;
     }>;
+  },
+});
+
+// Store scraped holidays
+export const storeHolidays = internalMutation({
+  args: {
+    holidays: v.array(
+      v.object({
+        date: v.string(),
+        name: v.string(),
+        semester: v.optional(v.string()),
+        isMonday: v.boolean(),
+        isSubstitution: v.optional(v.boolean()),
+      }),
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    for (const holiday of args.holidays) {
+      const existing = await ctx.db
+        .query("holidays")
+        .withIndex("by_date", (q) => q.eq("date", holiday.date))
+        .first();
+
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          name: holiday.name,
+          semester: holiday.semester,
+          isMonday: holiday.isMonday,
+          isSubstitution: holiday.isSubstitution,
+          scrapedAt: now,
+        });
+      } else {
+        await ctx.db.insert("holidays", {
+          date: holiday.date,
+          name: holiday.name,
+          semester: holiday.semester,
+          isMonday: holiday.isMonday,
+          isSubstitution: holiday.isSubstitution ?? false,
+          scrapedAt: now,
+        });
+      }
+    }
+
+    return null;
+  },
+});
+
+// Get Monday holidays for date range
+export const getMondayHolidays = internalQuery({
+  args: {
+    startDate: v.string(),
+    endDate: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      date: v.string(),
+      name: v.string(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const holidays = await ctx.db
+      .query("holidays")
+      .withIndex("by_monday", (q) => q.eq("isMonday", true))
+      .collect();
+
+    const start = new Date(args.startDate);
+    const end = new Date(args.endDate);
+
+    return holidays
+      .filter((holiday) => {
+        const holidayDate = new Date(holiday.date);
+        return holidayDate >= start && holidayDate <= end;
+      })
+      .map((h) => ({
+        date: h.date,
+        name: h.name,
+      }));
   },
 });

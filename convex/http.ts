@@ -7,6 +7,32 @@ const http = httpRouter();
 
 auth.addHttpRoutes(http);
 
+// Upload holidays endpoint
+http.route({
+  path: "/calendar/uploadHolidays",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const body = await request.json();
+    const { holidays } = body;
+
+    if (!Array.isArray(holidays)) {
+      return new Response("Invalid request: holidays must be an array", {
+        status: 400,
+      });
+    }
+
+    await ctx.runMutation(internal.calendar.storeHolidays, { holidays });
+
+    return new Response(
+      JSON.stringify({ success: true, count: holidays.length }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }),
+});
+
 // Calendar ICS feed endpoint - matches any path starting with /calendar/
 http.route({
   pathPrefix: "/calendar/",
