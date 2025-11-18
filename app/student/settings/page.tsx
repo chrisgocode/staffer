@@ -45,7 +45,6 @@ export default function Settings() {
   const router = useRouter();
   const [isActive, setIsActive] = useState(false);
   const [editedName, setEditedName] = useState<string | null>(null);
-  const [scheduleFile, setScheduleFile] = useState<File | null>(null);
   const [isUploadingSchedule, setIsUploadingSchedule] = useState(false);
 
   const calendarURL = getCalendarURL;
@@ -126,10 +125,9 @@ export default function Settings() {
 
       const { storageId } = await result.json();
 
-      // Save the storage ID to the user record
-      await uploadSchedule({ storageId });
+      // Save the storage ID and filename to the user record
+      await uploadSchedule({ storageId, filename: file.name });
 
-      setScheduleFile(file);
       toast.success("Schedule uploaded successfully!");
     } catch (error) {
       console.error(error);
@@ -142,7 +140,6 @@ export default function Settings() {
   const handleScheduleDelete = async () => {
     try {
       await deleteSchedule();
-      setScheduleFile(null);
       toast.success("Schedule deleted successfully!");
     } catch (error) {
       console.error(error);
@@ -293,11 +290,11 @@ export default function Settings() {
                 University Schedule
               </Label>
               <div className="flex flex-col gap-2">
-                {user.scheduleFileId || scheduleFile ? (
+                {user.scheduleFileId ? (
                   <div className="flex items-center gap-2 p-4 border rounded-md">
                     <FileText className="h-5 w-5 text-muted-foreground" />
                     <span className="flex-1 text-sm">
-                      {scheduleFile?.name || "schedule.pdf"}
+                      {user.scheduleFilename || "schedule.pdf"}
                     </span>
                     {scheduleUrl && (
                       <Button

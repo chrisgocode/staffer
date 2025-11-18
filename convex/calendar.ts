@@ -250,9 +250,25 @@ export const storeHolidays = internalMutation({
     const now = Date.now();
 
     for (const holiday of args.holidays) {
+      // Validate date format (YYYY-MM-DD) or ensure Date.parse yields a valid date
+      const dateStr = holiday.date;
+      const dateMatch = /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
+      const parsedDate = Date.parse(dateStr);
+      const isValidDate = !isNaN(parsedDate);
+
+      if (!dateMatch || !isValidDate) {
+        console.warn(
+          `Skipping holiday with invalid date: "${dateStr}" (name: "${holiday.name}")`,
+        );
+        continue;
+      }
+
+      // Normalize isSubstitution to a boolean before any DB operation
+      const isSubstitution = holiday.isSubstitution ?? false;
+
       const existing = await ctx.db
         .query("holidays")
-        .withIndex("by_date", (q) => q.eq("date", holiday.date))
+        .withIndex("by_date", (q) => q.eq("date", dateStr))
         .first();
 
       if (existing) {
@@ -260,16 +276,16 @@ export const storeHolidays = internalMutation({
           name: holiday.name,
           semester: holiday.semester,
           isMonday: holiday.isMonday,
-          isSubstitution: holiday.isSubstitution,
+          isSubstitution: isSubstitution,
           scrapedAt: now,
         });
       } else {
         await ctx.db.insert("holidays", {
-          date: holiday.date,
+          date: dateStr,
           name: holiday.name,
           semester: holiday.semester,
           isMonday: holiday.isMonday,
-          isSubstitution: holiday.isSubstitution ?? false,
+          isSubstitution: isSubstitution,
           scrapedAt: now,
         });
       }
@@ -300,9 +316,26 @@ export const getMondayHolidays = internalQuery({
     const start = new Date(args.startDate);
     const end = new Date(args.endDate);
 
+    // Validate start and end dates
+    if (isNaN(start.getTime())) {
+      throw new Error(
+        `Invalid startDate: "${args.startDate}" is not a valid date`,
+      );
+    }
+    if (isNaN(end.getTime())) {
+      throw new Error(`Invalid endDate: "${args.endDate}" is not a valid date`);
+    }
+
     return holidays
       .filter((holiday) => {
         const holidayDate = new Date(holiday.date);
+        // Skip holidays with invalid dates
+        if (isNaN(holidayDate.getTime())) {
+          console.warn(
+            `Skipping holiday with invalid date: "${holiday.date}" (name: "${holiday.name}")`,
+          );
+          return false;
+        }
         return holidayDate >= start && holidayDate <= end;
       })
       .map((h) => ({

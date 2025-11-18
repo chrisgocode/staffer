@@ -79,6 +79,50 @@ export function useShiftDragDrop({
     setDropPreview(null);
   };
 
+  const checkClassScheduleConflict = (
+    staffMember: StaffMember | null | undefined,
+    dayIndex: number,
+    startTime: string,
+    endTime: string,
+  ): boolean => {
+    if (!staffMember?.classSchedule) {
+      return false;
+    }
+
+    const blockedRanges = getBlockedRangesForUser(
+      staffMember.classSchedule,
+      dayIndex,
+    );
+
+    return doesShiftConflict(startTime, endTime, blockedRanges);
+  };
+
+  const checkShiftOverlap = (
+    userId: Id<"users">,
+    dayOfWeek: number,
+    startTime: string,
+    endTime: string,
+    excludeShiftId?: Id<"staffShifts">,
+  ): boolean => {
+    // Find all shifts for the same user on the same day, excluding the shift being moved
+    const userShiftsOnDay = shifts.filter(
+      (shift) =>
+        shift.userId === userId &&
+        shift.dayOfWeek === dayOfWeek &&
+        (!excludeShiftId || shift._id !== excludeShiftId),
+    );
+
+    // Convert existing shifts to BlockedTimeRange format
+    const blockedRanges = userShiftsOnDay.map((shift) => ({
+      dayOfWeek: shift.dayOfWeek,
+      startTime: shift.startTime,
+      endTime: shift.endTime,
+    }));
+
+    // Check for conflicts using doesShiftConflict
+    return doesShiftConflict(startTime, endTime, blockedRanges);
+  };
+
   const handleDayDrop = (dayIndex: number) => {
     if (movingShift && dropPreview) {
       // Get the staff member for the moving shift to check their schedule
@@ -86,24 +130,34 @@ export function useShiftDragDrop({
         (s) => s._id === movingShift.userId,
       );
 
-      if (staffMember?.classSchedule) {
-        const blockedRanges = getBlockedRangesForUser(
-          staffMember.classSchedule,
+      if (
+        checkClassScheduleConflict(
+          staffMember,
           dayIndex,
-        );
+          dropPreview.startTime,
+          dropPreview.endTime,
+        )
+      ) {
+        toast.error("Cannot schedule shift during class time");
+        setMovingShift(null);
+        setDropPreview(null);
+        return;
+      }
 
-        if (
-          doesShiftConflict(
-            dropPreview.startTime,
-            dropPreview.endTime,
-            blockedRanges,
-          )
-        ) {
-          toast.error("Cannot schedule shift during class time");
-          setMovingShift(null);
-          setDropPreview(null);
-          return;
-        }
+      // Check for conflicts with existing shifts for the same user
+      if (
+        checkShiftOverlap(
+          movingShift.userId,
+          dayIndex,
+          dropPreview.startTime,
+          dropPreview.endTime,
+          movingShift._id,
+        )
+      ) {
+        toast.error("This conflicts with an existing shift");
+        setMovingShift(null);
+        setDropPreview(null);
+        return;
       }
 
       // Update existing shift position
@@ -121,29 +175,38 @@ export function useShiftDragDrop({
       );
     } else if (draggedStaff && dropPreview) {
       // Check for conflicts with student's class schedule
-      if (draggedStaff.classSchedule) {
-        const blockedRanges = getBlockedRangesForUser(
-          draggedStaff.classSchedule,
+      if (
+        checkClassScheduleConflict(
+          draggedStaff,
           dayIndex,
-        );
+          dropPreview.startTime,
+          dropPreview.endTime,
+        )
+      ) {
+        toast.error("Cannot schedule shift during class time");
+        setDraggedStaff(null);
+        setDropPreview(null);
+        return;
+      }
 
-        if (
-          doesShiftConflict(
-            dropPreview.startTime,
-            dropPreview.endTime,
-            blockedRanges,
-          )
-        ) {
-          toast.error("Cannot schedule shift during class time");
-          setDraggedStaff(null);
-          setDropPreview(null);
-          return;
-        }
+      // Check for conflicts with existing shifts for the same user
+      if (
+        checkShiftOverlap(
+          draggedStaff._id,
+          dayIndex,
+          dropPreview.startTime,
+          dropPreview.endTime,
+        )
+      ) {
+        toast.error("This shift conflicts with an existing shift");
+        setDraggedStaff(null);
+        setDropPreview(null);
+        return;
       }
 
       // Add new shift to local state with temporary ID
       tempIdCounter.current += 1;
-      const maxZ = Math.max(0, ...shifts.map((s) => s.zIndex));
+      const maxZ = Math.max(0, ...shifts.map((s) => s.zIndex ?? 0));
       const newShift: Shift = {
         _id: `temp-${tempIdCounter.current}` as Id<"staffShifts">,
         userId: draggedStaff._id,

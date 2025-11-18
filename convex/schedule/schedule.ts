@@ -125,10 +125,7 @@ export const getStaffMembers = query({
       throw new Error("No user found");
     }
 
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new Error("User not found");
-    }
+    await requireAdmin(ctx);
 
     const staff = await ctx.db
       .query("users")
@@ -144,36 +141,6 @@ export const getStaffMembers = query({
   },
 });
 
-// Create a new semester schedule (admin only)
-export const createSchedule = mutation({
-  args: {
-    semester: v.string(),
-    createdBy: v.id("users"),
-  },
-  returns: v.id("staffSchedules"),
-  handler: async (ctx, args) => {
-    await requireAdmin(ctx);
-
-    // Deactivate any existing schedule for this semester
-    const existing = await ctx.db
-      .query("staffSchedules")
-      .withIndex("by_semester", (q) => q.eq("semester", args.semester))
-      .collect();
-
-    for (const schedule of existing) {
-      await ctx.db.patch(schedule._id, { isActive: false });
-    }
-
-    // Create new schedule
-    return await ctx.db.insert("staffSchedules", {
-      semester: args.semester,
-      createdAt: Date.now(),
-      createdBy: args.createdBy,
-      isActive: true,
-    });
-  },
-});
-
 // Add a shift to the schedule
 export const addShift = mutation({
   args: {
@@ -186,6 +153,35 @@ export const addShift = mutation({
   returns: v.id("staffShifts"),
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+
+    // Get the user associated with this shift
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      throw new Error(`User not found: ${args.userId}`);
+    }
+
+    // Validate shift against user's class schedule
+    if (user.classSchedule) {
+      const blockedRanges = getBlockedRangesForUser(
+        user.classSchedule,
+        args.dayOfWeek,
+      );
+
+      if (doesShiftConflict(args.startTime, args.endTime, blockedRanges)) {
+        const dayNames = [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+        ];
+        throw new Error(
+          `Shift conflicts with class time for ${user.name} on ${dayNames[args.dayOfWeek]} ${args.startTime}-${args.endTime}`,
+        );
+      }
+    }
+
+    // Proceed with insert if no schedule conflicts detected
     return await ctx.db.insert("staffShifts", {
       scheduleId: args.scheduleId,
       userId: args.userId,
@@ -207,6 +203,46 @@ export const updateShift = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
+
+    // Fetch the existing shift record first
+    const existingShift = await ctx.db.get(args.shiftId);
+    if (!existingShift) {
+      throw new Error(`Shift not found: ${args.shiftId}`);
+    }
+
+    // Compute the updated dayOfWeek/startTime/endTime by merging existing values with any provided in args
+    const updatedDayOfWeek = args.dayOfWeek ?? existingShift.dayOfWeek;
+    const updatedStartTime = args.startTime ?? existingShift.startTime;
+    const updatedEndTime = args.endTime ?? existingShift.endTime;
+
+    // Get the user associated with this shift
+    const user = await ctx.db.get(existingShift.userId);
+    if (!user) {
+      throw new Error(`User not found: ${existingShift.userId}`);
+    }
+
+    // Query the DB for the user's classes on that day and validate the new time range
+    if (user.classSchedule) {
+      const blockedRanges = getBlockedRangesForUser(
+        user.classSchedule,
+        updatedDayOfWeek,
+      );
+
+      if (doesShiftConflict(updatedStartTime, updatedEndTime, blockedRanges)) {
+        const dayNames = [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+        ];
+        throw new Error(
+          `Shift conflicts with class time for ${user.name} on ${dayNames[updatedDayOfWeek]} ${updatedStartTime}-${updatedEndTime}`,
+        );
+      }
+    }
+
+    // Proceed with patch if no schedule conflicts detected
     const { shiftId, ...updates } = args;
     await ctx.db.patch(shiftId, updates);
     return null;
@@ -246,8 +282,24 @@ export const publishSchedule = mutation({
 
     await requireAdmin(ctx);
 
+    // Weekday names for error messages
+    const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+
     // Validate each shift against student's class schedule
     for (const shift of args.shifts) {
+      // Validate dayOfWeek is an integer between 0 and 4 (inclusive)
+      if (!Number.isInteger(shift.dayOfWeek)) {
+        throw new Error(
+          `Invalid dayOfWeek: ${shift.dayOfWeek}. Must be an integer between 0 (Monday) and 4 (Friday).`,
+        );
+      }
+      const dayOfWeek = shift.dayOfWeek;
+      if (dayOfWeek < 0 || dayOfWeek > 4) {
+        throw new Error(
+          `Invalid dayOfWeek: ${dayOfWeek}. Must be between 0 (Monday) and 4 (Friday).`,
+        );
+      }
+
       const user = await ctx.db.get(shift.userId);
       if (!user) {
         throw new Error(`User not found: ${shift.userId}`);
@@ -257,12 +309,12 @@ export const publishSchedule = mutation({
         // Parse and check conflicts
         const blockedRanges = getBlockedRangesForUser(
           user.classSchedule,
-          shift.dayOfWeek,
+          dayOfWeek,
         );
 
         if (doesShiftConflict(shift.startTime, shift.endTime, blockedRanges)) {
           throw new Error(
-            `Shift conflicts with class time for ${user.name} on ${["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"][shift.dayOfWeek]} ${shift.startTime}-${shift.endTime}`,
+            `Shift conflicts with class time for ${user.name} on ${dayNames[dayOfWeek]} ${shift.startTime}-${shift.endTime}`,
           );
         }
       }

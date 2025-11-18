@@ -12,24 +12,254 @@ http.route({
   path: "/calendar/uploadHolidays",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    const body = await request.json();
-    const { holidays } = body;
+    try {
+      // Authenticate request using API key
+      const apiKey = process.env.UPLOAD_HOLIDAYS_API_KEY;
+      if (!apiKey) {
+        return new Response(
+          JSON.stringify({ error: "API key not configured" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
 
-    if (!Array.isArray(holidays)) {
-      return new Response("Invalid request: holidays must be an array", {
-        status: 400,
+      const authHeader = request.headers.get("Authorization");
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return new Response(
+          JSON.stringify({ error: "Missing or invalid Authorization header" }),
+          {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const providedKey = authHeader.substring(7); // Remove "Bearer " prefix
+      if (providedKey !== apiKey) {
+        return new Response(JSON.stringify({ error: "Invalid API key" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      // Parse request body
+      let body: unknown;
+      try {
+        body = await request.json();
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ error: "Invalid JSON in request body" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // Validate body structure
+      if (!body || typeof body !== "object") {
+        return new Response(
+          JSON.stringify({ error: "Request body must be an object" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const { holidays } = body as { holidays?: unknown };
+
+      // Validate holidays array exists
+      if (!holidays) {
+        return new Response(
+          JSON.stringify({ error: "Missing required field: holidays" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // Validate holidays is an array
+      if (!Array.isArray(holidays)) {
+        return new Response(
+          JSON.stringify({ error: "holidays must be an array" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // Enforce maximum array length to prevent DoS
+      const MAX_HOLIDAYS = 1000;
+      if (holidays.length > MAX_HOLIDAYS) {
+        return new Response(
+          JSON.stringify({
+            error: `Too many holidays. Maximum allowed: ${MAX_HOLIDAYS}`,
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // Validate and sanitize each holiday element
+      const sanitizedHolidays: Array<{
+        date: string;
+        name: string;
+        semester?: string;
+        isMonday: boolean;
+        isSubstitution?: boolean;
+      }> = [];
+
+      for (let i = 0; i < holidays.length; i++) {
+        const holiday = holidays[i];
+
+        // Validate holiday is an object
+        if (!holiday || typeof holiday !== "object" || Array.isArray(holiday)) {
+          return new Response(
+            JSON.stringify({
+              error: `Invalid holiday at index ${i}: must be an object`,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        const holidayObj = holiday as Record<string, unknown>;
+
+        // Validate required fields
+        if (typeof holidayObj.date !== "string" || !holidayObj.date.trim()) {
+          return new Response(
+            JSON.stringify({
+              error: `Invalid holiday at index ${i}: date must be a non-empty string`,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        if (typeof holidayObj.name !== "string" || !holidayObj.name.trim()) {
+          return new Response(
+            JSON.stringify({
+              error: `Invalid holiday at index ${i}: name must be a non-empty string`,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        if (typeof holidayObj.isMonday !== "boolean") {
+          return new Response(
+            JSON.stringify({
+              error: `Invalid holiday at index ${i}: isMonday must be a boolean`,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        // Validate optional fields if present
+        if (
+          holidayObj.semester !== undefined &&
+          typeof holidayObj.semester !== "string"
+        ) {
+          return new Response(
+            JSON.stringify({
+              error: `Invalid holiday at index ${i}: semester must be a string if provided`,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        if (
+          holidayObj.isSubstitution !== undefined &&
+          typeof holidayObj.isSubstitution !== "boolean"
+        ) {
+          return new Response(
+            JSON.stringify({
+              error: `Invalid holiday at index ${i}: isSubstitution must be a boolean if provided`,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        // Sanitize and normalize the holiday object
+        const sanitized: {
+          date: string;
+          name: string;
+          semester?: string;
+          isMonday: boolean;
+          isSubstitution?: boolean;
+        } = {
+          date: holidayObj.date.trim(),
+          name: holidayObj.name.trim(),
+          isMonday: holidayObj.isMonday,
+        };
+
+        if (
+          holidayObj.semester !== undefined &&
+          typeof holidayObj.semester === "string"
+        ) {
+          sanitized.semester = holidayObj.semester.trim() || undefined;
+        }
+
+        if (
+          holidayObj.isSubstitution !== undefined &&
+          typeof holidayObj.isSubstitution === "boolean"
+        ) {
+          sanitized.isSubstitution = holidayObj.isSubstitution;
+        }
+
+        sanitizedHolidays.push(sanitized);
+      }
+
+      // Call mutation with sanitized data
+      await ctx.runMutation(internal.calendar.storeHolidays, {
+        holidays: sanitizedHolidays,
       });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          count: sanitizedHolidays.length,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    } catch (error) {
+      // Handle internal server errors
+      return new Response(
+        JSON.stringify({
+          error: "Internal server error",
+          message: error instanceof Error ? error.message : "Unknown error",
+        }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
     }
-
-    await ctx.runMutation(internal.calendar.storeHolidays, { holidays });
-
-    return new Response(
-      JSON.stringify({ success: true, count: holidays.length }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      },
-    );
   }),
 });
 

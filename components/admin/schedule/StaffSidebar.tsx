@@ -13,9 +13,43 @@ function calculateStaffHours(userId: string, shifts: Shift[]): number {
 
   let totalHours = 0;
   for (const shift of staffShifts) {
-    const [startHour, startMin] = shift.startTime.split(":").map(Number);
-    const [endHour, endMin] = shift.endTime.split(":").map(Number);
-    const hours = (endHour * 60 + endMin - startHour * 60 - startMin) / 60;
+    // Validate and parse startTime
+    const startParts = shift.startTime.split(":");
+    if (startParts.length !== 2) {
+      console.warn(`Invalid startTime format for shift: ${shift.startTime}`);
+      continue;
+    }
+    const startHour = Number(startParts[0]);
+    const startMin = Number(startParts[1]);
+    if (!Number.isFinite(startHour) || !Number.isFinite(startMin)) {
+      console.warn(`Invalid startTime numbers for shift: ${shift.startTime}`);
+      continue;
+    }
+
+    // Validate and parse endTime
+    const endParts = shift.endTime.split(":");
+    if (endParts.length !== 2) {
+      console.warn(`Invalid endTime format for shift: ${shift.endTime}`);
+      continue;
+    }
+    const endHour = Number(endParts[0]);
+    const endMin = Number(endParts[1]);
+    if (!Number.isFinite(endHour) || !Number.isFinite(endMin)) {
+      console.warn(`Invalid endTime numbers for shift: ${shift.endTime}`);
+      continue;
+    }
+
+    // Convert to total minutes
+    const startMinutes = startHour * 60 + startMin;
+    let endMinutes = endHour * 60 + endMin;
+
+    // Handle midnight-spanning shifts
+    if (endMinutes <= startMinutes) {
+      endMinutes += 24 * 60;
+    }
+
+    // Compute difference in hours
+    const hours = (endMinutes - startMinutes) / 60;
     totalHours += hours;
   }
 

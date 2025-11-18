@@ -30,10 +30,12 @@ export function StaffScheduleCalendar() {
   const { publishedShifts, staffMembers, publishSchedule, isLoading } =
     useScheduleData(selectedSemester);
 
-  // Initialize local shifts from published schedule
+  // Initialize local shifts from published schedule only when empty
   useEffect(() => {
-    setShifts(publishedShifts);
-  }, [publishedShifts]);
+    if (shifts.length === 0) {
+      setShifts(publishedShifts);
+    }
+  }, [publishedShifts, shifts.length]);
 
   const dragDropHandlers = useShiftDragDrop({
     shifts,
@@ -146,8 +148,51 @@ export function StaffScheduleCalendar() {
   };
 
   // Check if there are unpublished changes
-  const hasUnpublishedChanges =
-    JSON.stringify(shifts) !== JSON.stringify(publishedShifts);
+  // Only compare the fields that are sent to the API: userId, dayOfWeek, startTime, endTime
+  const hasUnpublishedChanges = useMemo(() => {
+    // Quick length check
+    if (shifts.length !== publishedShifts.length) {
+      return true;
+    }
+
+    // Normalize both arrays to only include API-relevant fields
+    const normalizeShift = (shift: Shift) => ({
+      userId: shift.userId,
+      dayOfWeek: shift.dayOfWeek,
+      startTime: shift.startTime,
+      endTime: shift.endTime,
+    });
+
+    const normalizedShifts = shifts.map(normalizeShift);
+    const normalizedPublished = publishedShifts.map(normalizeShift);
+
+    // Sort both arrays by a stable key for comparison
+    const sortKey = (s: ReturnType<typeof normalizeShift>) =>
+      `${s.userId}-${s.dayOfWeek}-${s.startTime}-${s.endTime}`;
+
+    const sortedShifts = [...normalizedShifts].sort((a, b) =>
+      sortKey(a).localeCompare(sortKey(b)),
+    );
+    const sortedPublished = [...normalizedPublished].sort((a, b) =>
+      sortKey(a).localeCompare(sortKey(b)),
+    );
+
+    // Element-wise comparison
+    for (let i = 0; i < sortedShifts.length; i++) {
+      const a = sortedShifts[i];
+      const b = sortedPublished[i];
+      if (
+        a.userId !== b.userId ||
+        a.dayOfWeek !== b.dayOfWeek ||
+        a.startTime !== b.startTime ||
+        a.endTime !== b.endTime
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }, [shifts, publishedShifts]);
 
   if (isLoading) {
     return (

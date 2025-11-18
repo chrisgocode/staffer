@@ -24,7 +24,20 @@ export function shiftsOverlap(shift1: Shift, shift2: Shift): boolean {
 }
 
 function parseTimeToMinutes(time: string): number {
+  if (!/^\d{1,2}:\d{2}$/.test(time)) {
+    throw new Error(`Invalid time format: ${time}. Expected HH:MM or H:MM`);
+  }
   const [hours, minutes] = time.split(":").map(Number);
+  if (
+    isNaN(hours) ||
+    isNaN(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    throw new Error(`Invalid time values: ${time}`);
+  }
   return hours * 60 + minutes;
 }
 

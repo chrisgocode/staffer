@@ -12,10 +12,26 @@ interface ClassSchedule {
   dates: string;
 }
 
+function isValidClassSchedule(
+  classSchedule: Partial<ClassSchedule>,
+): classSchedule is ClassSchedule {
+  return (
+    !!classSchedule.days &&
+    classSchedule.days.trim() !== "" &&
+    !!classSchedule.startTime &&
+    classSchedule.startTime.trim() !== "" &&
+    !!classSchedule.endTime &&
+    classSchedule.endTime.trim() !== "" &&
+    !!classSchedule.dates &&
+    classSchedule.dates.trim() !== ""
+  );
+}
+
 function parseScheduleText(text: string): ClassSchedule[] {
   const schedule: ClassSchedule[] = [];
   const lines = text.split("\n");
   let currentClass: Partial<ClassSchedule> = {};
+  const warnings: string[] = [];
 
   console.log("starting loop through pdf lines");
   for (let i = 0; i < lines.length; i++) {
@@ -28,7 +44,13 @@ function parseScheduleText(text: string): ClassSchedule[] {
     // Days
     if (line.startsWith("Days:")) {
       if (Object.keys(currentClass).length > 0) {
-        schedule.push(currentClass as ClassSchedule);
+        if (isValidClassSchedule(currentClass)) {
+          schedule.push(currentClass);
+        } else {
+          const warning = `Skipping incomplete schedule entry: ${JSON.stringify(currentClass)}`;
+          warnings.push(warning);
+          console.warn(warning);
+        }
       }
       // Start a new class
       currentClass = {};
@@ -49,7 +71,17 @@ function parseScheduleText(text: string): ClassSchedule[] {
   }
 
   if (Object.keys(currentClass).length > 0) {
-    schedule.push(currentClass as ClassSchedule);
+    if (isValidClassSchedule(currentClass)) {
+      schedule.push(currentClass);
+    } else {
+      const warning = `Skipping incomplete schedule entry: ${JSON.stringify(currentClass)}`;
+      warnings.push(warning);
+      console.warn(warning);
+    }
+  }
+
+  if (warnings.length > 0) {
+    console.log(`Skipped ${warnings.length} incomplete schedule entries`);
   }
 
   console.log(schedule);
@@ -69,6 +101,7 @@ export const parseSchedulePDF = internalAction({
   args: {
     userId: v.id("users"),
     storageId: v.id("_storage"),
+    oldScheduleFileId: v.optional(v.id("_storage")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -88,6 +121,11 @@ export const parseSchedulePDF = internalAction({
         userId: args.userId,
         classSchedule: schedule,
       });
+
+      // Only delete the old file after successful parsing
+      if (args.oldScheduleFileId) {
+        await ctx.storage.delete(args.oldScheduleFileId);
+      }
     } catch (error) {
       console.error("Failed to parse schedule PDF:", error);
     }

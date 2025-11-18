@@ -18,9 +18,10 @@ export function useScheduleData(semester: string) {
 
     return scheduleData.shifts.map((shift, index) => {
       const staffIndex = staffData.findIndex((s) => s._id === shift.userId);
+      const fallbackColor = "bg-gray-500/20 border-gray-500/50 text-black";
       return {
         ...shift,
-        color: getStaffColor(staffIndex),
+        color: staffIndex === -1 ? fallbackColor : getStaffColor(staffIndex),
         zIndex: index + 1,
       };
     });

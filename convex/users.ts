@@ -22,6 +22,7 @@ export const getCurrentUser = query({
       role: v.optional(v.union(v.literal("ADMIN"), v.literal("STUDENT"))),
       calendarToken: v.optional(v.string()),
       scheduleFileId: v.optional(v.id("_storage")),
+      scheduleFilename: v.optional(v.string()),
       classSchedule: v.optional(
         v.array(
           v.object({
@@ -205,7 +206,10 @@ export const updateUserName = mutation({
 });
 
 export const uploadSchedule = mutation({
-  args: { storageId: v.id("_storage") },
+  args: {
+    storageId: v.id("_storage"),
+    filename: v.optional(v.string()),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -218,18 +222,17 @@ export const uploadSchedule = mutation({
       throw new Error("User not found");
     }
 
-    // Delete old schedule file if it exists
-    if (user.scheduleFileId) {
-      await ctx.storage.delete(user.scheduleFileId);
-    }
-
+    // Clear old parsed schedule data since it's stale
     await ctx.db.patch(userId, {
       scheduleFileId: args.storageId,
+      scheduleFilename: args.filename,
+      classSchedule: undefined,
     });
 
     await ctx.scheduler.runAfter(0, internal.schedule.parse.parseSchedulePDF, {
       userId,
       storageId: args.storageId,
+      oldScheduleFileId: user.scheduleFileId,
     });
 
     return null;
@@ -257,6 +260,8 @@ export const deleteSchedule = mutation({
 
     await ctx.db.patch(userId, {
       scheduleFileId: undefined,
+      scheduleFilename: undefined,
+      classSchedule: undefined,
     });
 
     return null;

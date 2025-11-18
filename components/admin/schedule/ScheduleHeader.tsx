@@ -10,7 +10,7 @@ import {
 import { formatDate, semesterOptions } from "@/lib/schedule-utils";
 
 interface ScheduleHeaderProps {
-  weekDates: Date[];
+  weekDates: [Date, Date, Date, Date, Date];
   selectedSemester: string;
   onSemesterChange: (semester: string) => void;
   weekOffset: number;

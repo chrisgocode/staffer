@@ -92,6 +92,21 @@ export function getBlockedRangesForUser(
 }
 
 /**
+ * Convert a time string (24-hour format) to minutes since midnight
+ * Handles both zero-padded ("09:00") and non-zero-padded ("9:00") formats
+ * "9:00" → 540, "13:30" → 810, "09:00" → 540
+ */
+function parseTimeToMinutes(time: string): number {
+  const match = time.trim().match(/(\d{1,2}):(\d{2})/);
+  if (!match) {
+    throw new Error(`Invalid time format: ${time}`);
+  }
+  const hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  return hours * 60 + minutes;
+}
+
+/**
  * Check if a shift time conflicts with any blocked time ranges
  * Returns true if there is a conflict
  */
@@ -100,10 +115,21 @@ export function doesShiftConflict(
   shiftEnd: string,
   blockedRanges: BlockedTimeRange[],
 ): boolean {
+  // Normalize shift times to minutes since midnight for reliable comparison
+  const shiftStartMinutes = parseTimeToMinutes(shiftStart);
+  const shiftEndMinutes = parseTimeToMinutes(shiftEnd);
+
   for (const blocked of blockedRanges) {
+    // Normalize blocked times to minutes since midnight
+    const blockedStartMinutes = parseTimeToMinutes(blocked.startTime);
+    const blockedEndMinutes = parseTimeToMinutes(blocked.endTime);
+
     // Check for any overlap between shift and blocked time
     // Overlap occurs if: shiftStart < blockedEnd AND shiftEnd > blockedStart
-    if (shiftStart < blocked.endTime && shiftEnd > blocked.startTime) {
+    if (
+      shiftStartMinutes < blockedEndMinutes &&
+      shiftEndMinutes > blockedStartMinutes
+    ) {
       return true;
     }
   }

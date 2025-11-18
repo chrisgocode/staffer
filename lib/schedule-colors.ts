@@ -17,5 +17,7 @@ export const staffColors = [
 ];
 
 export function getStaffColor(index: number): string {
-  return staffColors[index % staffColors.length];
+  return staffColors[
+    ((index % staffColors.length) + staffColors.length) % staffColors.length
+  ];
 }

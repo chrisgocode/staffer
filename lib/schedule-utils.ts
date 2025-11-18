@@ -1,11 +1,17 @@
 export function getShiftPosition(startTime: string, endTime: string) {
   const parseTime = (time: string) => {
     const [hours, minutes] = time.split(":").map(Number);
+    if (isNaN(hours) || isNaN(minutes)) {
+      throw new Error(`Invalid time format: ${time}`);
+    }
     return hours + minutes / 60;
   };
 
   const start = parseTime(startTime);
   const end = parseTime(endTime);
+  if (start < 8 || end > 21 || start >= end) {
+    throw new Error(`Invalid time range: ${startTime} - ${endTime}`);
+  }
   const duration = end - start;
 
   // Calculate position relative to 8 AM start
@@ -20,7 +26,8 @@ export function snapToQuarterHour(time: string): string {
   const roundedMinutes = Math.round(minutes / 15) * 15;
 
   if (roundedMinutes === 60) {
-    return `${(hours + 1).toString().padStart(2, "0")}:00`;
+    const nextHour = (hours + 1) % 24;
+    return `${nextHour.toString().padStart(2, "0")}:00`;
   }
 
   return `${hours.toString().padStart(2, "0")}:${roundedMinutes.toString().padStart(2, "0")}`;
@@ -49,12 +56,19 @@ export function calculateSnappedTime(percentY: number, duration?: number) {
   const totalMinutes = (8 + hourOffset) * 60;
   const snappedMinutes = Math.round(totalMinutes / 15) * 15;
 
-  const startHour = Math.floor(snappedMinutes / 60);
-  const startMin = snappedMinutes % 60;
+  const minMinutes = 8 * 60; // 480
+  const maxMinutes = 21 * 60; // 1260
+  const clampedSnappedMinutes = Math.max(
+    minMinutes,
+    Math.min(snappedMinutes, maxMinutes),
+  );
+
+  const startHour = Math.floor(clampedSnappedMinutes / 60);
+  const startMin = clampedSnappedMinutes % 60;
   const startTime = `${startHour.toString().padStart(2, "0")}:${startMin.toString().padStart(2, "0")}`;
 
   if (duration) {
-    const endMinutes = snappedMinutes + duration;
+    const endMinutes = Math.min(clampedSnappedMinutes + duration, maxMinutes);
     const endHour = Math.floor(endMinutes / 60);
     const endMin = endMinutes % 60;
     const endTime = `${endHour.toString().padStart(2, "0")}:${endMin.toString().padStart(2, "0")}`;
@@ -64,7 +78,7 @@ export function calculateSnappedTime(percentY: number, duration?: number) {
   return { startTime, endTime: startTime };
 }
 
-export function getWeekDates(weekOffset = 0) {
+export function getWeekDates(weekOffset = 0): [Date, Date, Date, Date, Date] {
   const today = new Date();
   const currentDay = today.getDay();
   const diff = currentDay === 0 ? -6 : 1 - currentDay; // Adjust to Monday
@@ -72,11 +86,19 @@ export function getWeekDates(weekOffset = 0) {
   const monday = new Date(today);
   monday.setDate(today.getDate() + diff + weekOffset * 7);
 
-  return Array.from({ length: 5 }, (_, i) => {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + i);
-    return date;
-  });
+  const dates: [Date, Date, Date, Date, Date] = [
+    new Date(monday),
+    new Date(monday),
+    new Date(monday),
+    new Date(monday),
+    new Date(monday),
+  ];
+  dates[1].setDate(dates[0].getDate() + 1);
+  dates[2].setDate(dates[0].getDate() + 2);
+  dates[3].setDate(dates[0].getDate() + 3);
+  dates[4].setDate(dates[0].getDate() + 4);
+
+  return dates;
 }
 
 export function formatDate(date: Date) {

@@ -5,7 +5,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import type { BlockedTimeRange } from "@/lib/schedule-conflict-utils";
 
 interface ScheduleGridProps {
-  weekDates: Date[];
+  weekDates: [Date, Date, Date, Date, Date];
   shifts: Shift[];
   dropPreview: DropPreview | null;
   movingShift: Shift | null;
@@ -80,7 +80,7 @@ export function ScheduleGrid({
           <div key={day} className="p-3 text-center border-l border-border">
             <div className="text-sm font-semibold text-foreground">{day}</div>
             <div className="text-xs text-muted-foreground mt-0.5">
-              {formatDate(weekDates[index])}
+              {weekDates[index] ? formatDate(weekDates[index]) : "—"}
             </div>
           </div>
         ))}

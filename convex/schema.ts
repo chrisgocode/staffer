@@ -21,6 +21,7 @@ export default defineSchema({
     role: v.optional(v.union(v.literal("ADMIN"), v.literal("STUDENT"))),
     calendarToken: v.optional(v.string()),
     scheduleFileId: v.optional(v.id("_storage")),
+    scheduleFilename: v.optional(v.string()),
     classSchedule: v.optional(
       v.array(
         v.object({

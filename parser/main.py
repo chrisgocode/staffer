@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 
 CONVEX_URL = os.getenv("CONVEX_URL")
-# CONVEX_API_KEY = os.getenv("CONVEX_API_KEY")
+CONVEX_API_KEY = os.getenv("CONVEX_API_KEY")
 CALENDAR_URL = "https://www.bu.edu/reg/calendars/"
 
 
@@ -52,7 +52,7 @@ def extract_semester_from_row(row_text: str) -> Optional[tuple[str, int]]:
 def scrape_calendar() -> List[Dict]:
     """Scrape BU academic calendar and extract holidays"""
     logger.info(f"Fetching calendar from {CALENDAR_URL}")
-    response = requests.get(CALENDAR_URL)
+    response = requests.get(CALENDAR_URL, timeout=30)
     response.raise_for_status()
     logger.info(f"Successfully fetched calendar page (status: {response.status_code})")
     
@@ -108,14 +108,18 @@ def scrape_calendar() -> List[Dict]:
             if date_cell and re.match(r'^[A-Za-z]+\s+\d+', date_cell):
                 if not current_year:
                     current_year = year_range[0]
-                current_date = parse_date(date_cell, current_year)
+                parsed_date = parse_date(date_cell, current_year)
+                if parsed_date is not None:
+                    current_date = parsed_date
+                else:
+                    logger.warning(f"Failed to parse date '{date_cell}' with year {current_year}, skipping")
             
             is_holiday = 'Holiday' in desc_cell and 'Classes Suspended' in desc_cell
             
             if is_holiday and current_date:
                 date_obj = datetime.strptime(current_date, "%Y-%m-%d")
                 is_monday = date_obj.weekday() == 0
-                holiday_name = desc_cell.split(',')[0].strip()
+                holiday_name = desc_cell.split(',', 1)[0].strip()
                 
                 holidays.append({
                     'date': current_date,
@@ -152,19 +156,31 @@ def upload_to_convex(holidays: List[Dict]) -> None:
         logger.error("CONVEX_URL not set in environment")
         raise ValueError("CONVEX_URL not set in environment")
     
+    if not CONVEX_API_KEY:
+        logger.error("CONVEX_API_KEY not set in environment")
+        raise ValueError("CONVEX_API_KEY not set in environment")
+    
     endpoint = f"{CONVEX_URL}/calendar/uploadHolidays"
     logger.info(f"Uploading {len(holidays)} holidays to {endpoint}")
     
     try:
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {CONVEX_API_KEY}'
+        }
         response = requests.post(
             endpoint,
             json={'holidays': holidays},
-            headers={'Content-Type': 'application/json'}
+            headers=headers,
+            timeout=30
         )
         response.raise_for_status()
         logger.info(f"Successfully uploaded {len(holidays)} holidays (status: {response.status_code})")
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to upload holidays: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            logger.error(f"Response status: {e.response.status_code}")
+            logger.error(f"Response body: {e.response.text}")
         raise
 
 
@@ -177,7 +193,7 @@ def main():
         if holidays:
             logger.info("Holidays:")
             for holiday in holidays:
-                logger.info(f"  - {holiday['date']}: {holiday['name'], holiday['semester']}")
+                logger.info(f"  - {holiday['date']}: {holiday['name']} ({holiday['semester']})")
         else:
             logger.warning("No holidays found")
         

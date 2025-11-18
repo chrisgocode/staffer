@@ -8,6 +8,8 @@ import {
 } from "@/lib/schedule-conflict-utils";
 import { toast } from "sonner";
 
+const MIN_HEIGHT_PERCENT = 3.85;
+
 interface UseShiftResizeProps {
   shifts: Shift[];
   onShiftsChange: (shifts: Shift[]) => void;
@@ -25,6 +27,17 @@ export function useShiftResize({
   const [dragEdge, setDragEdge] = useState<"top" | "bottom" | null>(null);
   const [tempShift, setTempShift] = useState<Shift | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const shiftsRef = useRef<Shift[]>(shifts);
+  const onShiftsChangeRef = useRef(onShiftsChange);
+
+  // Keep refs in sync with latest values
+  useEffect(() => {
+    shiftsRef.current = shifts;
+  }, [shifts]);
+
+  useEffect(() => {
+    onShiftsChangeRef.current = onShiftsChange;
+  }, [onShiftsChange]);
 
   const handleMouseDown = (
     e: React.MouseEvent,
@@ -60,11 +73,11 @@ export function useShiftResize({
       let newHeight = currentHeight;
 
       if (dragEdge === "top") {
-        const maxTop = currentTop + currentHeight - 3.85;
+        const maxTop = currentTop + currentHeight - MIN_HEIGHT_PERCENT;
         newTop = Math.min(clampedPercent, maxTop);
         newHeight = currentTop + currentHeight - newTop;
       } else {
-        const minHeight = 3.85;
+        const minHeight = MIN_HEIGHT_PERCENT;
         newHeight = Math.max(clampedPercent - currentTop, minHeight);
       }
 
@@ -103,8 +116,8 @@ export function useShiftResize({
         }
 
         // Update shift in local state
-        onShiftsChange(
-          shifts.map((s) =>
+        onShiftsChangeRef.current(
+          shiftsRef.current.map((s) =>
             s._id === draggingShift
               ? {
                   ...s,
@@ -128,14 +141,7 @@ export function useShiftResize({
         document.removeEventListener("mouseup", handleMouseUp);
       };
     }
-  }, [
-    draggingShift,
-    dragEdge,
-    tempShift,
-    shifts,
-    onShiftsChange,
-    staffMembers,
-  ]);
+  }, [draggingShift, dragEdge, tempShift, staffMembers]);
 
   return {
     draggingShift,
