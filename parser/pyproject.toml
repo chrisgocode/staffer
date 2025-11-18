@@ -1,0 +1,12 @@
+[project]
+name = "parser"
+version = "0.1.0"
+description = "Scrapes BU academic calendar and uploads holidays to Convex"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.12.0",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+    "dotenv>=0.9.9",
+]

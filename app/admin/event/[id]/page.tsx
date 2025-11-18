@@ -119,7 +119,7 @@ export default function EventDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminHeader onCreateEvent={() => setCreateDialogOpen(true)} />
+      <AdminHeader />
       <main className="container mx-auto px-4 py-8">
         <Button
           variant="ghost"

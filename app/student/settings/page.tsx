@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircleIcon, RefreshCcw } from "lucide-react";
+import { AlertCircleIcon, RefreshCcw, FileText, Trash2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -27,15 +27,25 @@ import { ArrowLeft, Check, Pen } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import {
+  Dropzone,
+  DropzoneContent,
+  DropzoneEmptyState,
+} from "@/components/ui/shadcn-io/dropzone";
 
 export default function Settings() {
   const user = useQuery(api.users.getCurrentUser);
   const getCalendarURL = useQuery(api.calendar.getMyCalendarUrl);
   const generateCalendarToken = useMutation(api.calendar.generateCalendarToken);
   const updateUserName = useMutation(api.users.updateUserName);
+  const generateUploadUrl = useMutation(api.users.generateUploadUrl);
+  const uploadSchedule = useMutation(api.users.uploadSchedule);
+  const deleteSchedule = useMutation(api.users.deleteSchedule);
+  const scheduleUrl = useQuery(api.users.getScheduleUrl);
   const router = useRouter();
   const [isActive, setIsActive] = useState(false);
   const [editedName, setEditedName] = useState<string | null>(null);
+  const [isUploadingSchedule, setIsUploadingSchedule] = useState(false);
 
   const calendarURL = getCalendarURL;
 
@@ -78,6 +88,62 @@ export default function Settings() {
     } catch (error) {
       console.log(error);
       toast.error("Failed to regenerate token. Please try again.");
+    }
+  };
+
+  const handleScheduleUpload = async (files: File[]) => {
+    const file = files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (file.type !== "application/pdf") {
+      toast.error("Invalid file type. Please upload a PDF file.");
+      return;
+    }
+
+    // Validate file size (1MB = 1048576 bytes)
+    if (file.size > 1048576) {
+      toast.error("File size exceeds 1MB. Please upload a smaller file.");
+      return;
+    }
+
+    setIsUploadingSchedule(true);
+    try {
+      // Get upload URL
+      const uploadUrl = await generateUploadUrl();
+
+      // Upload the file
+      const result = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+
+      if (!result.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const { storageId } = await result.json();
+
+      // Save the storage ID and filename to the user record
+      await uploadSchedule({ storageId, filename: file.name });
+
+      toast.success("Schedule uploaded successfully!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to upload schedule. Please try again.");
+    } finally {
+      setIsUploadingSchedule(false);
+    }
+  };
+
+  const handleScheduleDelete = async () => {
+    try {
+      await deleteSchedule();
+      toast.success("Schedule deleted successfully!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to delete schedule. Please try again.");
     }
   };
 
@@ -218,6 +284,73 @@ export default function Settings() {
                   </p>
                 </AlertDescription>
               </Alert>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-muted-foreground">
+                University Schedule
+              </Label>
+              <div className="flex flex-col gap-2">
+                {user.scheduleFileId ? (
+                  <div className="flex items-center gap-2 p-4 border rounded-md">
+                    <FileText className="h-5 w-5 text-muted-foreground" />
+                    <span className="flex-1 text-sm">
+                      {user.scheduleFilename || "schedule.pdf"}
+                    </span>
+                    {scheduleUrl && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(scheduleUrl, "_blank")}
+                      >
+                        View
+                      </Button>
+                    )}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Schedule?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete your uploaded schedule.
+                            This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-red-800 hover:bg-red-600"
+                            onClick={handleScheduleDelete}
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                ) : (
+                  <Dropzone
+                    accept={{ "application/pdf": [".pdf"] }}
+                    maxFiles={1}
+                    maxSize={1048576}
+                    onDrop={handleScheduleUpload}
+                    disabled={isUploadingSchedule}
+                    onError={(error) => {
+                      toast.error(error.message);
+                    }}
+                  >
+                    <DropzoneEmptyState />
+                    <DropzoneContent />
+                  </Dropzone>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Upload your university schedule from Student Link (PDF format,
+                max 1MB)
+              </p>
             </div>
           </Card>
         </div>

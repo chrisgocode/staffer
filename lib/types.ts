@@ -36,3 +36,36 @@ export interface EventSignup {
     endTime: string;
   }>;
 }
+
+export interface Shift {
+  _id: Id<"staffShifts">;
+  userId: Id<"users">;
+  userName: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  color: string;
+  zIndex: number;
+}
+
+export interface ClassSchedule {
+  days: string;
+  startTime: string;
+  endTime: string;
+  dates: string;
+}
+
+export interface StaffMember {
+  _id: Id<"users">;
+  name: string;
+  email: string;
+  color: string;
+  classSchedule?: ClassSchedule[];
+}
+
+export interface DropPreview {
+  day: number;
+  startTime: string;
+  endTime: string;
+  color: string;
+}

@@ -109,7 +109,7 @@ export function CreateEventDialog({
             <Label htmlFor="description">Description</Label>
             <Textarea
               id="description"
-              placeholder="Describe the event and what volunteers will do..."
+              placeholder="Describe the event and what students will do..."
               value={formData.description}
               onChange={(e) =>
                 setFormData({ ...formData, description: e.target.value })
