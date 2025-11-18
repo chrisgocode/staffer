@@ -86,28 +86,41 @@ export const getMyCalendarUrl = query({
   },
 });
 
-// Internal query to fetch scheduled events for a given token
+// Internal query to fetch scheduled events and shifts for a given token
 export const getScheduledEventsForToken = internalQuery({
   args: {
     token: v.string(),
   },
   returns: v.array(
-    v.object({
-      signupId: v.id("signups"),
-      eventTitle: v.string(),
-      eventDescription: v.optional(v.string()),
-      eventLocation: v.string(),
-      eventDate: v.string(),
-      eventStartTime: v.string(),
-      eventEndTime: v.string(),
-      timeslots: v.array(
-        v.object({
-          startTime: v.string(),
-          endTime: v.string(),
-        }),
-      ),
-      eventUpdatedAt: v.number(),
-    }),
+    v.union(
+      v.object({
+        type: v.literal("event"),
+        signupId: v.id("signups"),
+        eventTitle: v.string(),
+        eventDescription: v.optional(v.string()),
+        eventLocation: v.string(),
+        eventDate: v.string(),
+        eventStartTime: v.string(),
+        eventEndTime: v.string(),
+        timeslots: v.array(
+          v.object({
+            startTime: v.string(),
+            endTime: v.string(),
+          }),
+        ),
+        eventUpdatedAt: v.number(),
+      }),
+      v.object({
+        type: v.literal("shift"),
+        shiftId: v.id("staffShifts"),
+        scheduleId: v.id("staffSchedules"),
+        semester: v.string(),
+        dayOfWeek: v.number(),
+        startTime: v.string(),
+        endTime: v.string(),
+        scheduleCreatedAt: v.number(),
+      }),
+    ),
   ),
   handler: async (ctx, args) => {
     const user = await ctx.db
@@ -118,6 +131,31 @@ export const getScheduledEventsForToken = internalQuery({
     if (!user) {
       throw new Error("User not found");
     }
+
+    const results: Array<
+      | {
+          type: "event";
+          signupId: Id<"signups">;
+          eventTitle: string;
+          eventDescription: string | undefined;
+          eventLocation: string;
+          eventDate: string;
+          eventStartTime: string;
+          eventEndTime: string;
+          timeslots: Array<{ startTime: string; endTime: string }>;
+          eventUpdatedAt: number;
+        }
+      | {
+          type: "shift";
+          shiftId: Id<"staffShifts">;
+          scheduleId: Id<"staffSchedules">;
+          semester: string;
+          dayOfWeek: number;
+          startTime: string;
+          endTime: string;
+          scheduleCreatedAt: number;
+        }
+    > = [];
 
     // Get all signups for this user
     const signups = await ctx.db
@@ -134,6 +172,7 @@ export const getScheduledEventsForToken = internalQuery({
           if (!event) return null;
 
           return {
+            type: "event" as const,
             signupId: signup._id,
             eventTitle: event.title,
             eventDescription: event.description,
@@ -147,18 +186,49 @@ export const getScheduledEventsForToken = internalQuery({
         }),
     );
 
-    // Filter out null entries
-    return scheduledEvents.filter((event) => event !== null) as Array<{
-      signupId: Id<"signups">;
-      eventTitle: string;
-      eventDescription: string | undefined;
-      eventLocation: string;
-      eventDate: string;
-      eventStartTime: string;
-      eventEndTime: string;
-      timeslots: Array<{ startTime: string; endTime: string }>;
-      eventUpdatedAt: number;
-    }>;
+    results.push(
+      ...(scheduledEvents.filter((e) => e !== null) as Array<{
+        type: "event";
+        signupId: Id<"signups">;
+        eventTitle: string;
+        eventDescription: string | undefined;
+        eventLocation: string;
+        eventDate: string;
+        eventStartTime: string;
+        eventEndTime: string;
+        timeslots: Array<{ startTime: string; endTime: string }>;
+        eventUpdatedAt: number;
+      }>),
+    );
+
+    // Get all active schedules and find shifts for this user
+    const allSchedules = await ctx.db.query("staffSchedules").collect();
+
+    const activeSchedules = allSchedules.filter((s) => s.isActive);
+
+    for (const schedule of activeSchedules) {
+      const userShifts = await ctx.db
+        .query("staffShifts")
+        .withIndex("by_schedule_and_user", (q) =>
+          q.eq("scheduleId", schedule._id).eq("userId", user._id),
+        )
+        .collect();
+
+      for (const shift of userShifts) {
+        results.push({
+          type: "shift" as const,
+          shiftId: shift._id,
+          scheduleId: schedule._id,
+          semester: schedule.semester,
+          dayOfWeek: shift.dayOfWeek,
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          scheduleCreatedAt: schedule.createdAt,
+        });
+      }
+    }
+
+    return results;
   },
 });
 
