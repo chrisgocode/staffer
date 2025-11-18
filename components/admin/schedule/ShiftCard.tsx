@@ -2,12 +2,14 @@ import { X } from "lucide-react";
 import { getShiftPosition } from "@/lib/schedule-utils";
 import type { Shift } from "@/lib/types";
 import type { Id } from "@/convex/_generated/dataModel";
+import type { ShiftLayout } from "@/lib/shift-layout-utils";
 
 interface ShiftCardProps {
   shift: Shift;
   displayShift: Shift;
   isDragging: boolean;
   isMoving: boolean;
+  layout?: ShiftLayout;
   onDragStart: (e: React.DragEvent, shift: Shift) => void;
   onDragEnd: () => void;
   onClick: (e: React.MouseEvent) => void;
@@ -21,6 +23,7 @@ export function ShiftCard({
   displayShift,
   isDragging,
   isMoving,
+  layout,
   onDragStart,
   onDragEnd,
   onClick,
@@ -33,23 +36,37 @@ export function ShiftCard({
     displayShift.endTime,
   );
 
+  // Use layout positioning if provided, otherwise use default
+  const positioningClass = layout ? "absolute" : "absolute left-1 right-1";
+  // Cap z-index at 40 to ensure dialogs (z-50) appear above shift cards
+  const safeZIndex = Math.min(shift.zIndex, 40);
+  const positioningStyle = layout
+    ? {
+        top: position.top,
+        height: position.height,
+        zIndex: safeZIndex,
+        left: layout.left,
+        width: layout.width,
+      }
+    : {
+        top: position.top,
+        height: position.height,
+        zIndex: safeZIndex,
+      };
+
   return (
     <div
       draggable={!isDragging}
       onDragStart={(e) => onDragStart(e, shift)}
       onDragEnd={onDragEnd}
-      className={`absolute left-1 right-1 rounded-md border-l-2 p-2 pointer-events-auto transition-all ${
+      className={`${positioningClass} rounded-md border-l-2 p-2 pointer-events-auto transition-all ${
         shift.color
       } ${
         isDragging
           ? "ring-2 ring-primary shadow-lg"
           : "hover:scale-[1.02] cursor-move hover:shadow-md"
       } ${isMoving ? "opacity-30" : ""}`}
-      style={{
-        top: position.top,
-        height: position.height,
-        zIndex: shift.zIndex,
-      }}
+      style={positioningStyle}
       onClick={onClick}
     >
       {/* Top resize handle */}
@@ -76,9 +93,11 @@ export function ShiftCard({
         {displayShift.userName}
       </div>
       <div className="text-xs opacity-80 truncate">Student Staff</div>
-      <div className="text-xs opacity-70 mt-1">
-        {displayShift.startTime} - {displayShift.endTime}
-      </div>
+      {!layout && (
+        <div className="text-xs opacity-70 mt-1">
+          {displayShift.startTime} - {displayShift.endTime}
+        </div>
+      )}
 
       {/* Bottom resize handle */}
       <div

@@ -2,6 +2,7 @@ import { timeSlots } from "@/lib/schedule-utils";
 import { getShiftPosition } from "@/lib/schedule-utils";
 import { ShiftCard } from "./ShiftCard";
 import { BlockedTimeOverlay } from "./BlockedTimeOverlay";
+import { calculateShiftLayout } from "@/lib/shift-layout-utils";
 import type { Shift, DropPreview } from "@/lib/types";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { BlockedTimeRange } from "@/lib/schedule-conflict-utils";
@@ -46,6 +47,9 @@ export function DayColumn({
   onMouseDownBottom,
 }: DayColumnProps) {
   const dayShifts = shifts.filter((shift) => shift.dayOfWeek === dayIndex);
+
+  // Calculate layout information for overlapping shifts
+  const shiftLayouts = calculateShiftLayout(shifts, dayIndex);
 
   return (
     <div
@@ -109,6 +113,7 @@ export function DayColumn({
                 displayShift={displayShift}
                 isDragging={isDragging}
                 isMoving={isMoving}
+                layout={shiftLayouts.get(shift._id)}
                 onDragStart={onShiftDragStart}
                 onDragEnd={onShiftDragEnd}
                 onClick={(e) => onShiftClick(e, shift._id)}

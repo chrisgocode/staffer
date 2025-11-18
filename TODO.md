@@ -6,3 +6,4 @@
 - [x] settings page for students
 - [ ] filters for upcoming events (this week, next week, certain weeks, need staff, fully staffed, combinations of multiple)
 - [x] paginate listEvents (did client side pagination)
+- [ ] combine calendar views

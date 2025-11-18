@@ -13,6 +13,7 @@ import { useShiftResize } from "@/hooks/use-shift-resize";
 import { ScheduleHeader } from "./ScheduleHeader";
 import { StaffSidebar } from "./StaffSidebar";
 import { ScheduleGrid } from "./ScheduleGrid";
+import { ShiftDetailsDialog } from "./ShiftDetailsDialog";
 import type { Shift } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -21,6 +22,8 @@ export function StaffScheduleCalendar() {
   const [selectedSemester, setSelectedSemester] = useState("Fall 2025"); // hardcoding for now
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const weekDates = getWeekDates(weekOffset);
 
@@ -96,6 +99,11 @@ export function StaffScheduleCalendar() {
 
   const handleShiftClick = (shiftId: string) => {
     bringToFront(shiftId);
+    const shift = shifts.find((s) => s._id === shiftId);
+    if (shift) {
+      setSelectedShift(shift);
+      setIsDialogOpen(true);
+    }
   };
 
   const handleDayDragOver = (e: React.DragEvent, dayIndex: number) => {
@@ -167,6 +175,7 @@ export function StaffScheduleCalendar() {
           <div className="grid grid-cols-[280px_1fr] gap-6">
             <StaffSidebar
               staffMembers={staffMembers}
+              shifts={shifts}
               onDragStart={dragDropHandlers.handleStaffDragStart}
               onDragEnd={dragDropHandlers.handleStaffDragEnd}
             />
@@ -199,6 +208,12 @@ export function StaffScheduleCalendar() {
           </div>
         </div>
       </Card>
+
+      <ShiftDetailsDialog
+        shift={selectedShift}
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+      />
     </div>
   );
 }

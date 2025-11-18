@@ -1,12 +1,8 @@
 export interface ClassSchedule {
-  courseCode: string;
-  section: string;
-  description: string;
   days: string; // "MoWeFr", "TuTh", etc.
   startTime: string; // "12:30 pm"
   endTime: string; // "1:45 pm"
   dates: string;
-  room: string;
 }
 
 export interface BlockedTimeRange {

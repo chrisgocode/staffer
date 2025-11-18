@@ -49,14 +49,10 @@ export interface Shift {
 }
 
 export interface ClassSchedule {
-  courseCode: string;
-  section: string;
-  description: string;
   days: string;
   startTime: string;
   endTime: string;
   dates: string;
-  room: string;
 }
 
 export interface StaffMember {
