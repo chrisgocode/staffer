@@ -1,0 +1,34 @@
+name: Holiday Scraper
+
+on:
+  schedule:
+    - cron: "0 0 1 1,7 *"
+  workflow_dispatch:
+
+jobs:
+  scrape-holidays:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        working-directory: ./parser
+        run: uv sync
+
+      - name: Run scraper
+        working-directory: ./parser
+        env:
+          CONVEX_URL: ${{ secrets.CONVEX_URL }}
+          CONVEX_API_KEY: ${{ secrets.CONVEX_API_KEY }}
+        run: uv run main.py
