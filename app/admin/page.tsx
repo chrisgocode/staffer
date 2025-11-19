@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { AdminCalendarView } from "@/components/admin/admin-calendar-view";
 import { EventManagementList } from "@/components/admin/event/event-management-list";
@@ -32,9 +32,42 @@ export default function AdminDashboard() {
     useQuery(api.signups.getPendingCountsForEvents, {
       eventIds: events.map((e) => e._id),
     }) ?? {};
+
+  // Fetch signups for all events using batch query
+  const eventSignupsData = useQuery(
+    api.signups.getEventSignupsBatch,
+    events.length > 0 ? { eventIds: events.map((e) => e._id) } : "skip",
+  );
+  const eventSignups = useMemo(() => {
+    return eventSignupsData ?? {};
+  }, [eventSignupsData]);
+
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<Id<"events"> | null>(null);
+  const [isCalendarEnlarged, setIsCalendarEnlarged] = useState(false);
+  const [calendarView, setCalendarView] = useState<"month" | "week">("month");
+  const updateCalendarPreferences = useMutation(api.users.updateCalendarPreferences);
   const isLoading = user === undefined;
+
+  // Load preferences from user
+  useEffect(() => {
+    if (user?.preferences?.ui?.calendar) {
+      const calendarPrefs = user.preferences.ui.calendar;
+      setIsCalendarEnlarged(calendarPrefs.enlarged ?? false);
+      setCalendarView(calendarPrefs.view ?? "month");
+    }
+  }, [user]);
+
+  // Save preferences when they change
+  const handleEnlargeToggle = (enlarged: boolean) => {
+    setIsCalendarEnlarged(enlarged);
+    updateCalendarPreferences({ enlarged });
+  };
+
+  const handleViewChange = (view: "month" | "week") => {
+    setCalendarView(view);
+    updateCalendarPreferences({ view });
+  };
 
   useEffect(() => {
     if (!isLoading && (!user || user.role !== "ADMIN")) {
@@ -81,23 +114,55 @@ export default function AdminDashboard() {
             Manage Newbury Center events and review student staff signups
           </p>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <AdminCalendarView
-              events={events}
-              onEventClick={handleEventClick}
-              getPendingCount={getPendingCount}
-            />
+        {isCalendarEnlarged ? (
+          <div className="space-y-6">
+            <div className="w-full">
+              <AdminCalendarView
+                events={events}
+                onEventClick={handleEventClick}
+                getPendingCount={getPendingCount}
+                isEnlarged={isCalendarEnlarged}
+                onEnlargeToggle={handleEnlargeToggle}
+                eventSignups={eventSignups}
+                initialView={calendarView}
+                onViewChange={handleViewChange}
+              />
+            </div>
+            <div className="w-full">
+              <EventManagementList
+                events={events}
+                onEventClick={handleEventClick}
+                onDeleteEvent={handleDeleteEvent}
+                getPendingCount={getPendingCount}
+                isEnlarged={isCalendarEnlarged}
+              />
+            </div>
           </div>
-          <div>
-            <EventManagementList
-              events={events}
-              onEventClick={handleEventClick}
-              onDeleteEvent={handleDeleteEvent}
-              getPendingCount={getPendingCount}
-            />
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <AdminCalendarView
+                events={events}
+                onEventClick={handleEventClick}
+                getPendingCount={getPendingCount}
+                isEnlarged={isCalendarEnlarged}
+                onEnlargeToggle={handleEnlargeToggle}
+                eventSignups={eventSignups}
+                initialView={calendarView}
+                onViewChange={handleViewChange}
+              />
+            </div>
+            <div>
+              <EventManagementList
+                events={events}
+                onEventClick={handleEventClick}
+                onDeleteEvent={handleDeleteEvent}
+                getPendingCount={getPendingCount}
+                isEnlarged={isCalendarEnlarged}
+              />
+            </div>
           </div>
-        </div>
+        )}
       </main>
       <CreateEventDialog
         open={createDialogOpen}
