@@ -33,6 +33,20 @@ export const getCurrentUser = query({
           }),
         ),
       ),
+      preferences: v.optional(
+        v.object({
+          ui: v.optional(
+            v.object({
+              calendar: v.optional(
+                v.object({
+                  enlarged: v.boolean(),
+                  view: v.union(v.literal("month"), v.literal("week")),
+                }),
+              ),
+            }),
+          ),
+        }),
+      ),
     }),
   ),
   handler: async (ctx) => {
@@ -283,5 +297,51 @@ export const getScheduleUrl = query({
     }
 
     return await ctx.storage.getUrl(user.scheduleFileId);
+  },
+});
+
+export const updateCalendarPreferences = mutation({
+  args: {
+    enlarged: v.optional(v.boolean()),
+    view: v.optional(v.union(v.literal("month"), v.literal("week"))),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not found");
+    }
+
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get existing preferences or create new structure
+    const currentPreferences = user.preferences ?? {};
+    const currentUi = currentPreferences.ui ?? {};
+    const currentCalendar = currentUi.calendar ?? {
+      enlarged: false,
+      view: "month" as const,
+    };
+
+    // Update only the provided fields
+    const updatedCalendar = {
+      ...currentCalendar,
+      ...(args.enlarged !== undefined && { enlarged: args.enlarged }),
+      ...(args.view !== undefined && { view: args.view }),
+    };
+
+    await ctx.db.patch(userId, {
+      preferences: {
+        ...currentPreferences,
+        ui: {
+          ...currentUi,
+          calendar: updatedCalendar,
+        },
+      },
+    });
+
+    return null;
   },
 });

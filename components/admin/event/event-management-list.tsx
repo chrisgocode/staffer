@@ -35,6 +35,7 @@ interface EventManagementListProps {
   onEventClick: (event: Event) => void;
   onDeleteEvent: (eventId: Id<"events">) => void;
   getPendingCount: (eventId: Id<"events">) => number;
+  isEnlarged?: boolean;
 }
 
 export function EventManagementList({
@@ -42,6 +43,7 @@ export function EventManagementList({
   onEventClick,
   onDeleteEvent,
   getPendingCount,
+  isEnlarged = false,
 }: EventManagementListProps) {
   const router = useRouter();
   const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
@@ -134,6 +136,7 @@ export function EventManagementList({
   const startIndex = (currentPage - 1) * EVENTS_PER_PAGE;
   const endIndex = startIndex + EVENTS_PER_PAGE;
   const paginatedEvents = upcomingEvents.slice(startIndex, endIndex);
+  const displayEvents = isEnlarged ? upcomingEvents : paginatedEvents;
 
   const navigateToPage = (value: string) => {
     const pageNum = Number.parseInt(value);
@@ -245,15 +248,89 @@ export function EventManagementList({
           </Popover>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className={isEnlarged ? "" : "space-y-3"}>
         {upcomingEvents.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             {activeFilterCount > 0
               ? "No events match your filters"
               : "No upcoming events"}
           </p>
+        ) : isEnlarged ? (
+          <div className="flex overflow-x-auto gap-4 pb-4">
+            {displayEvents.map((event) => {
+              const pendingCount = getPendingCount(event._id);
+              const filledSpots = event.spotsTotal - event.spotsAvailable;
+
+              return (
+                <div
+                  key={event._id}
+                  onClick={() => onEventClick(event)}
+                  className="min-w-[350px] flex-shrink-0 p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div>
+                      <h3 className="font-semibold text-base mb-1">
+                        {event.title}
+                      </h3>
+                      {pendingCount > 0 && (
+                        <Badge variant="secondary" className="text-xs">
+                          {pendingCount} pending approval
+                          {pendingCount > 1 ? "s" : ""}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/admin/event/${event._id}?edit=1`);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteEvent(event._id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5 text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Calendar className="h-3.5 w-3.5" />
+                      <span>{formatDate(event.date)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>
+                        {formatTime(event.startTime)} -{" "}
+                        {formatTime(event.endTime)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <MapPin className="h-3.5 w-3.5" />
+                      <span>{event.location}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Users className="h-3.5 w-3.5" />
+                      <span>
+                        {filledSpots}/{event.spotsTotal} spots filled
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         ) : (
-          paginatedEvents.map((event) => {
+          displayEvents.map((event) => {
             const pendingCount = getPendingCount(event._id);
             const filledSpots = event.spotsTotal - event.spotsAvailable;
 
@@ -326,7 +403,7 @@ export function EventManagementList({
           })
         )}
 
-        {totalPages > 1 && (
+        {!isEnlarged && totalPages > 1 && (
           <div className="flex items-center justify-center gap-2 pt-4 border-t">
             <Button
               variant="outline"

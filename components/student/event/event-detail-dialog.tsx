@@ -8,16 +8,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
@@ -64,7 +54,7 @@ export function EventDetailDialog({
     Array<{ startTime: string; endTime: string }>
   >([{ startTime: "", endTime: "" }]);
   const [isEditingSignup, setIsEditingSignup] = useState(false);
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
 
   if (!event) return null;
 
@@ -85,6 +75,7 @@ export function EventDetailDialog({
           : [{ startTime: "", endTime: "" }],
       );
       setIsEditingSignup(true);
+      setIsConfirmingCancel(false); // Reset confirmation when editing
     }
   };
 
@@ -194,15 +185,27 @@ export function EventDetailDialog({
   };
 
   const handleCancelSignup = () => {
-    if (!existingSignup) return;
-    deleteSignup({ signupId: existingSignup._id });
+    if (!isConfirmingCancel) {
+      setIsConfirmingCancel(true);
+      return;
+    }
 
-    toast.success("Signup Cancelled", {
-      description: "You have been removed from this event",
-    });
+    try {
+      if (!existingSignup) return;
+      deleteSignup({ signupId: existingSignup._id });
 
-    setShowCancelDialog(false);
-    onOpenChange(false);
+      toast.success("Signup Cancelled", {
+        description: "You have been removed from this event",
+      });
+
+      setIsConfirmingCancel(false);
+      onOpenChange(false);
+    } catch (e) {
+      toast.error("Failed to cancel signup", {
+        description: "Please try again",
+      });
+      setIsConfirmingCancel(false);
+    }
   };
 
   const formatDate = (dateStr: string) => {
@@ -230,6 +233,7 @@ export function EventDetailDialog({
         if (!newOpen) {
           setIsEditingSignup(false);
           setTimeslots([{ startTime: "", endTime: "" }]);
+          setIsConfirmingCancel(false); // Reset confirmation when dialog closes
         }
         onOpenChange(newOpen);
       }}
@@ -451,13 +455,15 @@ export function EventDetailDialog({
                   Edit Availability
                 </Button>
                 <Button
-                  variant="outline"
+                  variant={isConfirmingCancel ? "destructive" : "outline"}
                   size="sm"
-                  onClick={() => setShowCancelDialog(true)}
-                  className="gap-2 text-destructive bg-transparent"
+                  onClick={handleCancelSignup}
+                  className={
+                    isConfirmingCancel ? "gap-2" : "gap-2 bg-transparent"
+                  }
                 >
                   <X className="h-3.5 w-3.5" />
-                  Cancel Signup
+                  {isConfirmingCancel ? "Are you sure?" : "Cancel Signup"}
                 </Button>
               </div>
             </div>
@@ -492,27 +498,6 @@ export function EventDetailDialog({
           )}
         </div>
       </DialogContent>
-
-      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Signup</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to cancel your signup for this event? This
-              action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep Signup</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleCancelSignup}
-              className="bg-destructive hover:bg-destructive/90"
-            >
-              Cancel Signup
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Dialog>
   );
 }

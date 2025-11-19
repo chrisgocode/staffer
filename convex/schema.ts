@@ -32,6 +32,20 @@ export default defineSchema({
         }),
       ),
     ),
+    preferences: v.optional(
+      v.object({
+        ui: v.optional(
+          v.object({
+            calendar: v.optional(
+              v.object({
+                enlarged: v.boolean(),
+                view: v.union(v.literal("month"), v.literal("week")),
+              }),
+            ),
+          }),
+        ),
+      }),
+    ),
   })
     .index("email", ["email"])
     .index("by_role", ["role"])

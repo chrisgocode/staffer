@@ -22,12 +22,14 @@ interface UpcomingEventsListProps {
   events: Event[];
   signups: EventSignup[];
   onEventClick: (event: Event) => void;
+  isEnlarged?: boolean;
 }
 
 export function UpcomingEventsList({
   events,
   signups,
   onEventClick,
+  isEnlarged = false,
 }: UpcomingEventsListProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageInput, setPageInput] = useState("1");
@@ -68,6 +70,7 @@ export function UpcomingEventsList({
   const startIndex = (currentPage - 1) * EVENTS_PER_PAGE;
   const endIndex = startIndex + EVENTS_PER_PAGE;
   const paginatedEvents = upcomingEvents.slice(startIndex, endIndex);
+  const displayEvents = isEnlarged ? upcomingEvents : paginatedEvents;
 
   const navigateToPage = (value: string) => {
     const pageNum = Number.parseInt(value);
@@ -99,11 +102,62 @@ export function UpcomingEventsList({
       <CardHeader>
         <CardTitle>Upcoming Events</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className={isEnlarged ? "" : "space-y-3"}>
         {upcomingEvents.length === 0 ? (
           <p className="text-sm text-muted-foreground">No upcoming events</p>
+        ) : isEnlarged ? (
+          <div className="flex overflow-x-auto gap-4 pb-4">
+            {displayEvents.map((event) => {
+              const signup = getSignupStatus(event._id);
+              return (
+                <button
+                  key={event._id}
+                  onClick={() => onEventClick(event)}
+                  className="min-w-[300px] flex-shrink-0 text-left p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h3 className="font-medium text-sm">{event.title}</h3>
+                    {signup && (
+                      <Badge
+                        variant={
+                          signup.status === "SCHEDULED"
+                            ? "default"
+                            : signup.status === "PENDING"
+                              ? "destructive"
+                              : "secondary"
+                        }
+                        className="text-xs"
+                      >
+                        {signup.status}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      <span>{formatDate(event.date)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span>
+                        {formatTime(event.startTime)} -{" "}
+                        {formatTime(event.endTime)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <MapPin className="h-3 w-3" />
+                      <span>{event.location}</span>
+                    </div>
+                  </div>
+                  <div className="text-xs mt-2">
+                    {event.spotsAvailable} spots available
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         ) : (
-          paginatedEvents.map((event) => {
+          displayEvents.map((event) => {
             const signup = getSignupStatus(event._id);
             return (
               <button
@@ -153,7 +207,7 @@ export function UpcomingEventsList({
           })
         )}
 
-        {totalPages > 1 && (
+        {!isEnlarged && totalPages > 1 && (
           <div className="flex items-center justify-center gap-2 pt-4 border-t">
             <Button
               variant="outline"

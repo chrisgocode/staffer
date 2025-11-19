@@ -267,6 +267,114 @@ export const getEventSignups = query({
   },
 });
 
+// Get signups for multiple events (Admin or event creator only) - batch query
+export const getEventSignupsBatch = query({
+  args: {
+    eventIds: v.array(v.id("events")),
+  },
+  returns: v.record(
+    v.id("events"),
+    v.array(
+      v.object({
+        _id: v.id("signups"),
+        _creationTime: v.number(),
+        eventId: v.id("events"),
+        studentId: v.id("users"),
+        studentName: v.string(),
+        studentEmail: v.string(),
+        studentImageUrl: v.optional(v.string()),
+        status: v.union(v.literal("PENDING"), v.literal("SCHEDULED")),
+        timeslots: v.array(
+          v.object({ startTime: v.string(), endTime: v.string() }),
+        ),
+      }),
+    ),
+  ),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("No user found");
+    }
+
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("User profile not found");
+    }
+
+    const result: Record<
+      Id<"events">,
+      Array<{
+        _id: Id<"signups">;
+        _creationTime: number;
+        eventId: Id<"events">;
+        studentId: Id<"users">;
+        studentName: string;
+        studentEmail: string;
+        studentImageUrl?: string;
+        status: "PENDING" | "SCHEDULED";
+        timeslots: Array<{ startTime: string; endTime: string }>;
+      }>
+    > = {} as Record<
+      Id<"events">,
+      Array<{
+        _id: Id<"signups">;
+        _creationTime: number;
+        eventId: Id<"events">;
+        studentId: Id<"users">;
+        studentName: string;
+        studentEmail: string;
+        studentImageUrl?: string;
+        status: "PENDING" | "SCHEDULED";
+        timeslots: Array<{ startTime: string; endTime: string }>;
+      }>
+    >;
+
+    // Fetch signups for each event
+    for (const eventId of args.eventIds) {
+      const event = await ctx.db.get(eventId);
+      if (!event) {
+        continue;
+      }
+
+      // Only admins and event creators can see all signups
+      if (user.role !== "ADMIN" && event.createdBy !== userId) {
+        continue;
+      }
+
+      const signups = await ctx.db
+        .query("signups")
+        .withIndex("by_event_id", (q) => q.eq("eventId", eventId))
+        .collect();
+
+      // Enrich signups with image URLs
+      const enrichedSignups = await Promise.all(
+        signups.map(async (signup) => {
+          const student = await ctx.db.get(signup.studentId);
+          let studentImageUrl: string | undefined = undefined;
+
+          if (student) {
+            if (student.imageId) {
+              studentImageUrl =
+                (await ctx.storage.getUrl(student.imageId)) ?? undefined;
+            } else if (student.image) {
+              studentImageUrl = student.image;
+            }
+          }
+
+          return {
+            ...signup,
+            studentImageUrl,
+          };
+        }),
+      );
+
+      result[eventId] = enrichedSignups;
+    }
+
+    return result;
+  },
+});
+
 // Get public signups for a specific event (visible to any authenticated user)
 export const getPublicEventSignups = query({
   args: {
@@ -327,6 +435,102 @@ export const getPublicEventSignups = query({
     );
 
     return enrichedSignups;
+  },
+});
+
+// Get public signups for multiple events (batch query)
+export const getPublicEventSignupsBatch = query({
+  args: {
+    eventIds: v.array(v.id("events")),
+  },
+  returns: v.record(
+    v.id("events"),
+    v.array(
+      v.object({
+        _id: v.id("signups"),
+        _creationTime: v.number(),
+        eventId: v.id("events"),
+        studentId: v.id("users"),
+        studentName: v.string(),
+        studentImageUrl: v.optional(v.string()),
+        status: v.union(v.literal("PENDING"), v.literal("SCHEDULED")),
+        timeslots: v.array(
+          v.object({ startTime: v.string(), endTime: v.string() }),
+        ),
+      }),
+    ),
+  ),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("No user found");
+    }
+
+    const result: Record<
+      Id<"events">,
+      Array<{
+        _id: Id<"signups">;
+        _creationTime: number;
+        eventId: Id<"events">;
+        studentId: Id<"users">;
+        studentName: string;
+        studentImageUrl?: string;
+        status: "PENDING" | "SCHEDULED";
+        timeslots: Array<{ startTime: string; endTime: string }>;
+      }>
+    > = {} as Record<
+      Id<"events">,
+      Array<{
+        _id: Id<"signups">;
+        _creationTime: number;
+        eventId: Id<"events">;
+        studentId: Id<"users">;
+        studentName: string;
+        studentImageUrl?: string;
+        status: "PENDING" | "SCHEDULED";
+        timeslots: Array<{ startTime: string; endTime: string }>;
+      }>
+    >;
+
+    // Fetch signups for each event
+    for (const eventId of args.eventIds) {
+      const signups = await ctx.db
+        .query("signups")
+        .withIndex("by_event_id", (q) => q.eq("eventId", eventId))
+        .collect();
+
+      // Enrich signups with image URLs
+      const enrichedSignups = await Promise.all(
+        signups.map(async (signup) => {
+          const student = await ctx.db.get(signup.studentId);
+          let studentImageUrl: string | undefined = undefined;
+
+          if (student) {
+            if (student.imageId) {
+              studentImageUrl =
+                (await ctx.storage.getUrl(student.imageId)) ?? undefined;
+            } else if (student.image) {
+              studentImageUrl = student.image;
+            }
+          }
+
+          return {
+            _id: signup._id,
+            _creationTime: signup._creationTime,
+            eventId: signup.eventId,
+            studentId: signup.studentId,
+            studentName: signup.studentName,
+            status: signup.status,
+            timeslots: signup.timeslots,
+            studentImageUrl,
+          };
+        }),
+      );
+
+      result[eventId] = enrichedSignups;
+    }
+
+    return result;
   },
 });
 
