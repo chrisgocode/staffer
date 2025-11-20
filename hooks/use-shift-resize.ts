@@ -3,7 +3,7 @@ import { getShiftPosition, positionToTime } from "@/lib/schedule-utils";
 import type { Shift, StaffMember } from "@/lib/types";
 import type { Id } from "@/convex/_generated/dataModel";
 import {
-  getBlockedRangesForUser,
+  getAllBlockedRanges,
   doesShiftConflict,
 } from "@/lib/schedule-conflict-utils";
 import { toast } from "sonner";
@@ -14,12 +14,14 @@ interface UseShiftResizeProps {
   shifts: Shift[];
   onShiftsChange: (shifts: Shift[]) => void;
   staffMembers: StaffMember[];
+  selectedSemester: string;
 }
 
 export function useShiftResize({
   shifts,
   onShiftsChange,
   staffMembers,
+  selectedSemester,
 }: UseShiftResizeProps) {
   const [draggingShift, setDraggingShift] = useState<Id<"staffShifts"> | null>(
     null,
@@ -91,13 +93,15 @@ export function useShiftResize({
 
     const handleMouseUp = () => {
       if (draggingShift && tempShift) {
-        // Validate against class schedule
+        // Validate against class schedule and preferences
         const staffMember = staffMembers.find(
           (s) => s._id === tempShift.userId,
         );
-        if (staffMember?.classSchedule) {
-          const blockedRanges = getBlockedRangesForUser(
-            staffMember.classSchedule,
+        if (staffMember) {
+          const blockedRanges = getAllBlockedRanges(
+            staffMember.classSchedule ?? undefined,
+            staffMember.preferences?.schedule ?? undefined,
+            selectedSemester,
             tempShift.dayOfWeek,
           );
           if (
@@ -107,7 +111,7 @@ export function useShiftResize({
               blockedRanges,
             )
           ) {
-            toast.error("Cannot resize shift into class time");
+            toast.error("Cannot resize shift into class time or preferences");
             setDraggingShift(null);
             setDragEdge(null);
             setTempShift(null);
@@ -141,7 +145,7 @@ export function useShiftResize({
         document.removeEventListener("mouseup", handleMouseUp);
       };
     }
-  }, [draggingShift, dragEdge, tempShift, staffMembers]);
+  }, [draggingShift, dragEdge, tempShift, staffMembers, selectedSemester]);
 
   return {
     draggingShift,

@@ -34,6 +34,58 @@ export default defineSchema({
     ),
     preferences: v.optional(
       v.object({
+        schedule: v.optional(
+          v.record(
+            v.string(),
+            v.object({
+              monday: v.object({
+                isFullDayOff: v.boolean(),
+                timeBlocks: v.array(
+                  v.object({
+                    start: v.string(), // "09:00" (24-hour format)
+                    end: v.string(), // "17:00" (24-hour format)
+                  }),
+                ),
+              }),
+              tuesday: v.object({
+                isFullDayOff: v.boolean(),
+                timeBlocks: v.array(
+                  v.object({
+                    start: v.string(),
+                    end: v.string(),
+                  }),
+                ),
+              }),
+              wednesday: v.object({
+                isFullDayOff: v.boolean(),
+                timeBlocks: v.array(
+                  v.object({
+                    start: v.string(),
+                    end: v.string(),
+                  }),
+                ),
+              }),
+              thursday: v.object({
+                isFullDayOff: v.boolean(),
+                timeBlocks: v.array(
+                  v.object({
+                    start: v.string(),
+                    end: v.string(),
+                  }),
+                ),
+              }),
+              friday: v.object({
+                isFullDayOff: v.boolean(),
+                timeBlocks: v.array(
+                  v.object({
+                    start: v.string(),
+                    end: v.string(),
+                  }),
+                ),
+              }),
+            }),
+          ),
+        ),
         ui: v.optional(
           v.object({
             calendar: v.optional(

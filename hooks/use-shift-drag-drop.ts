@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { calculateSnappedTime } from "@/lib/schedule-utils";
 import {
-  getBlockedRangesForUser,
+  getAllBlockedRanges,
   doesShiftConflict,
 } from "@/lib/schedule-conflict-utils";
 import type { Shift, StaffMember, DropPreview } from "@/lib/types";
@@ -12,12 +12,14 @@ interface UseShiftDragDropProps {
   shifts: Shift[];
   onShiftsChange: (shifts: Shift[]) => void;
   staffMembers: StaffMember[];
+  selectedSemester: string;
 }
 
 export function useShiftDragDrop({
   shifts,
   onShiftsChange,
   staffMembers,
+  selectedSemester,
 }: UseShiftDragDropProps) {
   const [draggedStaff, setDraggedStaff] = useState<StaffMember | null>(null);
   const [movingShift, setMovingShift] = useState<Shift | null>(null);
@@ -79,18 +81,20 @@ export function useShiftDragDrop({
     setDropPreview(null);
   };
 
-  const checkClassScheduleConflict = (
+  const checkScheduleConflict = (
     staffMember: StaffMember | null | undefined,
     dayIndex: number,
     startTime: string,
     endTime: string,
   ): boolean => {
-    if (!staffMember?.classSchedule) {
+    if (!staffMember) {
       return false;
     }
 
-    const blockedRanges = getBlockedRangesForUser(
-      staffMember.classSchedule,
+    const blockedRanges = getAllBlockedRanges(
+      staffMember.classSchedule ?? undefined,
+      staffMember.preferences?.schedule ?? undefined,
+      selectedSemester,
       dayIndex,
     );
 
@@ -117,6 +121,7 @@ export function useShiftDragDrop({
       dayOfWeek: shift.dayOfWeek,
       startTime: shift.startTime,
       endTime: shift.endTime,
+      source: "class" as const, // Using "class" as placeholder for shift conflicts
     }));
 
     // Check for conflicts using doesShiftConflict
@@ -131,14 +136,14 @@ export function useShiftDragDrop({
       );
 
       if (
-        checkClassScheduleConflict(
+        checkScheduleConflict(
           staffMember,
           dayIndex,
           dropPreview.startTime,
           dropPreview.endTime,
         )
       ) {
-        toast.error("Cannot schedule shift during class time");
+        toast.error("Cannot schedule shift during class time or preferences");
         setMovingShift(null);
         setDropPreview(null);
         return;
@@ -174,16 +179,16 @@ export function useShiftDragDrop({
         ),
       );
     } else if (draggedStaff && dropPreview) {
-      // Check for conflicts with student's class schedule
+      // Check for conflicts with student's class schedule and preferences
       if (
-        checkClassScheduleConflict(
+        checkScheduleConflict(
           draggedStaff,
           dayIndex,
           dropPreview.startTime,
           dropPreview.endTime,
         )
       ) {
-        toast.error("Cannot schedule shift during class time");
+        toast.error("Cannot schedule shift during class time or preferences");
         setDraggedStaff(null);
         setDropPreview(null);
         return;
@@ -208,6 +213,7 @@ export function useShiftDragDrop({
       tempIdCounter.current += 1;
       const maxZ = Math.max(0, ...shifts.map((s) => s.zIndex ?? 0));
       const newShift: Shift = {
+        // creating a temp id because the shift is not yet created in the database
         _id: `temp-${tempIdCounter.current}` as Id<"staffShifts">,
         userId: draggedStaff._id,
         userName: draggedStaff.name,

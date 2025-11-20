@@ -3,7 +3,7 @@ import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
 import { requireAdmin } from "../permissions";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { getBlockedRangesForUser, doesShiftConflict } from "./conflictUtils";
+import { getAllBlockedRanges, doesShiftConflict } from "./conflictUtils";
 
 export const storeClassSchedule = internalMutation({
   args: {
@@ -117,6 +117,72 @@ export const getStaffMembers = query({
           }),
         ),
       ),
+      preferences: v.optional(
+        v.object({
+          schedule: v.optional(
+            v.record(
+              v.string(),
+              v.object({
+                monday: v.object({
+                  isFullDayOff: v.boolean(),
+                  timeBlocks: v.array(
+                    v.object({
+                      start: v.string(),
+                      end: v.string(),
+                    }),
+                  ),
+                }),
+                tuesday: v.object({
+                  isFullDayOff: v.boolean(),
+                  timeBlocks: v.array(
+                    v.object({
+                      start: v.string(),
+                      end: v.string(),
+                    }),
+                  ),
+                }),
+                wednesday: v.object({
+                  isFullDayOff: v.boolean(),
+                  timeBlocks: v.array(
+                    v.object({
+                      start: v.string(),
+                      end: v.string(),
+                    }),
+                  ),
+                }),
+                thursday: v.object({
+                  isFullDayOff: v.boolean(),
+                  timeBlocks: v.array(
+                    v.object({
+                      start: v.string(),
+                      end: v.string(),
+                    }),
+                  ),
+                }),
+                friday: v.object({
+                  isFullDayOff: v.boolean(),
+                  timeBlocks: v.array(
+                    v.object({
+                      start: v.string(),
+                      end: v.string(),
+                    }),
+                  ),
+                }),
+              }),
+            ),
+          ),
+          ui: v.optional(
+            v.object({
+              calendar: v.optional(
+                v.object({
+                  enlarged: v.boolean(),
+                  view: v.union(v.literal("month"), v.literal("week")),
+                }),
+              ),
+            }),
+          ),
+        }),
+      ),
     }),
   ),
   handler: async (ctx) => {
@@ -137,6 +203,7 @@ export const getStaffMembers = query({
       name: s.name,
       email: s.email,
       classSchedule: s.classSchedule,
+      preferences: s.preferences,
     }));
   },
 });
@@ -154,31 +221,31 @@ export const addShift = mutation({
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
 
+    // Get the schedule to determine semester
+    const schedule = await ctx.db.get(args.scheduleId);
+    if (!schedule) {
+      throw new Error(`Schedule not found: ${args.scheduleId}`);
+    }
+
     // Get the user associated with this shift
     const user = await ctx.db.get(args.userId);
     if (!user) {
       throw new Error(`User not found: ${args.userId}`);
     }
 
-    // Validate shift against user's class schedule
-    if (user.classSchedule) {
-      const blockedRanges = getBlockedRangesForUser(
-        user.classSchedule,
-        args.dayOfWeek,
-      );
+    // Validate shift against user's class schedule and preferences for this semester
+    const blockedRanges = getAllBlockedRanges(
+      user.classSchedule,
+      user.preferences?.schedule,
+      schedule.semester,
+      args.dayOfWeek,
+    );
 
-      if (doesShiftConflict(args.startTime, args.endTime, blockedRanges)) {
-        const dayNames = [
-          "Monday",
-          "Tuesday",
-          "Wednesday",
-          "Thursday",
-          "Friday",
-        ];
-        throw new Error(
-          `Shift conflicts with class time for ${user.name} on ${dayNames[args.dayOfWeek]} ${args.startTime}-${args.endTime}`,
-        );
-      }
+    if (doesShiftConflict(args.startTime, args.endTime, blockedRanges)) {
+      const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+      throw new Error(
+        `Shift conflicts with class time or preferences for ${user.name} on ${dayNames[args.dayOfWeek]} ${args.startTime}-${args.endTime}`,
+      );
     }
 
     // Proceed with insert if no schedule conflicts detected
@@ -215,31 +282,31 @@ export const updateShift = mutation({
     const updatedStartTime = args.startTime ?? existingShift.startTime;
     const updatedEndTime = args.endTime ?? existingShift.endTime;
 
+    // Get the schedule to determine semester
+    const schedule = await ctx.db.get(existingShift.scheduleId);
+    if (!schedule) {
+      throw new Error(`Schedule not found: ${existingShift.scheduleId}`);
+    }
+
     // Get the user associated with this shift
     const user = await ctx.db.get(existingShift.userId);
     if (!user) {
       throw new Error(`User not found: ${existingShift.userId}`);
     }
 
-    // Query the DB for the user's classes on that day and validate the new time range
-    if (user.classSchedule) {
-      const blockedRanges = getBlockedRangesForUser(
-        user.classSchedule,
-        updatedDayOfWeek,
-      );
+    // Query the DB for the user's classes and preferences on that day and validate the new time range
+    const blockedRanges = getAllBlockedRanges(
+      user.classSchedule,
+      user.preferences?.schedule,
+      schedule.semester,
+      updatedDayOfWeek,
+    );
 
-      if (doesShiftConflict(updatedStartTime, updatedEndTime, blockedRanges)) {
-        const dayNames = [
-          "Monday",
-          "Tuesday",
-          "Wednesday",
-          "Thursday",
-          "Friday",
-        ];
-        throw new Error(
-          `Shift conflicts with class time for ${user.name} on ${dayNames[updatedDayOfWeek]} ${updatedStartTime}-${updatedEndTime}`,
-        );
-      }
+    if (doesShiftConflict(updatedStartTime, updatedEndTime, blockedRanges)) {
+      const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+      throw new Error(
+        `Shift conflicts with class time or preferences for ${user.name} on ${dayNames[updatedDayOfWeek]} ${updatedStartTime}-${updatedEndTime}`,
+      );
     }
 
     // Proceed with patch if no schedule conflicts detected
@@ -305,18 +372,18 @@ export const publishSchedule = mutation({
         throw new Error(`User not found: ${shift.userId}`);
       }
 
-      if (user.classSchedule) {
-        // Parse and check conflicts
-        const blockedRanges = getBlockedRangesForUser(
-          user.classSchedule,
-          dayOfWeek,
-        );
+      // Parse and check conflicts against both class schedule and preferences for this semester
+      const blockedRanges = getAllBlockedRanges(
+        user.classSchedule,
+        user.preferences?.schedule,
+        args.semester,
+        dayOfWeek,
+      );
 
-        if (doesShiftConflict(shift.startTime, shift.endTime, blockedRanges)) {
-          throw new Error(
-            `Shift conflicts with class time for ${user.name} on ${dayNames[dayOfWeek]} ${shift.startTime}-${shift.endTime}`,
-          );
-        }
+      if (doesShiftConflict(shift.startTime, shift.endTime, blockedRanges)) {
+        throw new Error(
+          `Shift conflicts with class time or preferences for ${user.name} on ${dayNames[dayOfWeek]} ${shift.startTime}-${shift.endTime}`,
+        );
       }
     }
 

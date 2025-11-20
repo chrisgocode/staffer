@@ -1,6 +1,12 @@
 "use client";
 
-import { AlertCircleIcon, RefreshCcw, FileText, Trash2 } from "lucide-react";
+import {
+  AlertCircleIcon,
+  RefreshCcw,
+  FileText,
+  Trash2,
+  Clock,
+} from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -19,19 +25,43 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { CopyButton } from "@/components/ui/shadcn-io/copy-button";
+import { semesterOptions } from "@/lib/schedule-utils";
 import { Spinner } from "@/components/ui/spinner";
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import { ArrowLeft, Check, Pen } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
   Dropzone,
   DropzoneContent,
   DropzoneEmptyState,
 } from "@/components/ui/shadcn-io/dropzone";
+
+type DayOfWeek = "monday" | "tuesday" | "wednesday" | "thursday" | "friday";
+
+interface TimeBlock {
+  start: string;
+  end: string;
+}
+
+interface DayPreference {
+  isFullDayOff: boolean;
+  timeBlocks: TimeBlock[];
+}
+
+type SchedulePreferences = {
+  [key in DayOfWeek]: DayPreference;
+};
 
 export default function Settings() {
   const user = useQuery(api.users.getCurrentUser);
@@ -42,16 +72,51 @@ export default function Settings() {
   const uploadSchedule = useMutation(api.users.uploadSchedule);
   const deleteSchedule = useMutation(api.users.deleteSchedule);
   const scheduleUrl = useQuery(api.users.getScheduleUrl);
+  const updateSchedulePreferences = useMutation(
+    api.users.updateSchedulePreferences,
+  );
   const router = useRouter();
   const [isActive, setIsActive] = useState(false);
   const [editedName, setEditedName] = useState<string | null>(null);
   const [isUploadingSchedule, setIsUploadingSchedule] = useState(false);
+  const [schedulePreferences, setSchedulePreferences] =
+    useState<SchedulePreferences>({
+      monday: { isFullDayOff: false, timeBlocks: [] },
+      tuesday: { isFullDayOff: false, timeBlocks: [] },
+      wednesday: { isFullDayOff: false, timeBlocks: [] },
+      thursday: { isFullDayOff: false, timeBlocks: [] },
+      friday: { isFullDayOff: false, timeBlocks: [] },
+    });
+  const [selectedDay, setSelectedDay] = useState<DayOfWeek | null>(null);
+  const [selectedSemester, setSelectedSemester] = useState<string>(
+    semesterOptions[0],
+  );
+
+  const daysOfWeek: { key: DayOfWeek; label: string; short: string }[] = [
+    { key: "monday", label: "Monday", short: "Mon" },
+    { key: "tuesday", label: "Tuesday", short: "Tue" },
+    { key: "wednesday", label: "Wednesday", short: "Wed" },
+    { key: "thursday", label: "Thursday", short: "Thu" },
+    { key: "friday", label: "Friday", short: "Fri" },
+  ];
 
   const calendarURL = getCalendarURL;
 
-  if (!calendarURL) {
-    return;
-  }
+  // Load preferences from user data for selected semester
+  useEffect(() => {
+    if (user?.preferences?.schedule?.[selectedSemester]) {
+      setSchedulePreferences(user.preferences.schedule[selectedSemester]);
+    } else {
+      // Reset to defaults if no preferences for this semester
+      setSchedulePreferences({
+        monday: { isFullDayOff: false, timeBlocks: [] },
+        tuesday: { isFullDayOff: false, timeBlocks: [] },
+        wednesday: { isFullDayOff: false, timeBlocks: [] },
+        thursday: { isFullDayOff: false, timeBlocks: [] },
+        friday: { isFullDayOff: false, timeBlocks: [] },
+      });
+    }
+  }, [user, selectedSemester]);
 
   const handleEditClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -147,7 +212,73 @@ export default function Settings() {
     }
   };
 
-  if (!user) {
+  const toggleFullDay = (day: DayOfWeek) => {
+    setSchedulePreferences((prev) => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        isFullDayOff: !prev[day].isFullDayOff,
+        timeBlocks: !prev[day].isFullDayOff ? [] : prev[day].timeBlocks,
+      },
+    }));
+  };
+
+  const addTimeBlock = (day: DayOfWeek) => {
+    setSchedulePreferences((prev) => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        timeBlocks: [...prev[day].timeBlocks, { start: "09:00", end: "17:00" }],
+      },
+    }));
+  };
+
+  const removeTimeBlock = (day: DayOfWeek, index: number) => {
+    setSchedulePreferences((prev) => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        timeBlocks: prev[day].timeBlocks.filter((_, i) => i !== index),
+      },
+    }));
+  };
+
+  const updateTimeBlock = (
+    day: DayOfWeek,
+    index: number,
+    field: "start" | "end",
+    value: string,
+  ) => {
+    setSchedulePreferences((prev) => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        timeBlocks: prev[day].timeBlocks.map((block, i) =>
+          i === index ? { ...block, [field]: value } : block,
+        ),
+      },
+    }));
+  };
+
+  const formatTimeBlocks = (blocks: TimeBlock[]) => {
+    if (blocks.length === 0) return null;
+    return blocks.map((block) => `${block.start}-${block.end}`).join(", ");
+  };
+
+  const handleSavePreferences = async () => {
+    try {
+      await updateSchedulePreferences({
+        semester: selectedSemester,
+        preferences: schedulePreferences,
+      });
+      toast.success("Schedule preferences saved successfully!");
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to save preferences. Please try again.");
+    }
+  };
+
+  if (!user || !calendarURL) {
     return (
       <div>
         <Spinner />
@@ -287,7 +418,7 @@ export default function Settings() {
             </div>
             <div className="space-y-2">
               <Label className="text-sm font-medium text-muted-foreground">
-                University Schedule
+                Class Schedule
               </Label>
               <div className="flex flex-col gap-2">
                 {user.scheduleFileId ? (
@@ -348,9 +479,211 @@ export default function Settings() {
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Upload your university schedule from Student Link (PDF format,
-                max 1MB)
+                Upload your class schedule from Student Link (PDF format, max
+                1MB)
               </p>
+            </div>
+
+            <div className="space-y-4 pt-6 border-t">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <Label className="text-base font-semibold">
+                    Schedule Preferences
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Mark days or times when you prefer not to work
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-muted-foreground">
+                    Semester
+                  </Label>
+                  <Select
+                    value={selectedSemester}
+                    onValueChange={setSelectedSemester}
+                  >
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Select semester" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {semesterOptions.map((semester) => (
+                        <SelectItem key={semester} value={semester}>
+                          {semester}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-5 gap-2">
+                {daysOfWeek.map(({ key, label, short }) => {
+                  const dayPref = schedulePreferences[key];
+                  const hasPreferences =
+                    dayPref.isFullDayOff || dayPref.timeBlocks.length > 0;
+                  const isSelected = selectedDay === key;
+
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setSelectedDay(isSelected ? null : key)}
+                      className={`p-4 rounded-lg border-2 transition-all text-left ${
+                        isSelected
+                          ? "border-primary bg-primary/5"
+                          : hasPreferences
+                            ? "border-amber-500/50 bg-amber-500/5"
+                            : "border-border hover:border-muted-foreground/50"
+                      }`}
+                    >
+                      <div className="text-sm font-medium mb-1">{short}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {dayPref.isFullDayOff ? (
+                          <span className="text-amber-600 font-medium">
+                            Off
+                          </span>
+                        ) : dayPref.timeBlocks.length > 0 ? (
+                          <span className="text-amber-600 font-medium">
+                            {dayPref.timeBlocks.length} block
+                            {dayPref.timeBlocks.length > 1 ? "s" : ""}
+                          </span>
+                        ) : (
+                          <span>Available</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {selectedDay && (
+                <Card className="p-6 border-primary/50">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between pb-4 border-b">
+                      <div>
+                        <h3 className="font-semibold text-lg">
+                          {daysOfWeek.find((d) => d.key === selectedDay)?.label}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          Set your availability preferences
+                        </p>
+                      </div>
+                      <Clock className="h-5 w-5 text-muted-foreground" />
+                    </div>
+
+                    <div className="flex items-center justify-between py-3 px-4 bg-muted/50 rounded-lg">
+                      <div className="flex-1">
+                        <Label className="text-sm font-medium">
+                          Mark entire day as unavailable
+                        </Label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Toggle this if you don&apos;t want to work at all on
+                          this day
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => toggleFullDay(selectedDay)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          schedulePreferences[selectedDay].isFullDayOff
+                            ? "bg-amber-600"
+                            : "bg-muted"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            schedulePreferences[selectedDay].isFullDayOff
+                              ? "translate-x-6"
+                              : "translate-x-1"
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {!schedulePreferences[selectedDay].isFullDayOff && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-sm font-medium">
+                            Specific unavailable times
+                          </Label>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => addTimeBlock(selectedDay)}
+                            className="h-8"
+                          >
+                            Add Block
+                          </Button>
+                        </div>
+
+                        {schedulePreferences[selectedDay].timeBlocks.length ===
+                        0 ? (
+                          <div className="text-center py-8 text-sm text-muted-foreground border-2 border-dashed rounded-lg">
+                            No time blocks set. Click &quot;Add Block&quot; to
+                            mark specific unavailable hours.
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {schedulePreferences[selectedDay].timeBlocks.map(
+                              (block, index) => (
+                                <div
+                                  key={index}
+                                  className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"
+                                >
+                                  <div className="flex items-center gap-2 flex-1">
+                                    <Input
+                                      type="time"
+                                      value={block.start}
+                                      onChange={(e) =>
+                                        updateTimeBlock(
+                                          selectedDay,
+                                          index,
+                                          "start",
+                                          e.target.value,
+                                        )
+                                      }
+                                      className="flex-1"
+                                    />
+                                    <span className="text-sm text-muted-foreground">
+                                      to
+                                    </span>
+                                    <Input
+                                      type="time"
+                                      value={block.end}
+                                      onChange={(e) =>
+                                        updateTimeBlock(
+                                          selectedDay,
+                                          index,
+                                          "end",
+                                          e.target.value,
+                                        )
+                                      }
+                                      className="flex-1"
+                                    />
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() =>
+                                      removeTimeBlock(selectedDay, index)
+                                    }
+                                    className="h-8 w-8"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ),
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              )}
+
+              <div className="flex justify-end pt-4">
+                <Button onClick={handleSavePreferences}>
+                  Save Preferences
+                </Button>
+              </div>
             </div>
           </Card>
         </div>

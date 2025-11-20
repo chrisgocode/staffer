@@ -35,6 +35,58 @@ export const getCurrentUser = query({
       ),
       preferences: v.optional(
         v.object({
+          schedule: v.optional(
+            v.record(
+              v.string(),
+              v.object({
+                monday: v.object({
+                  isFullDayOff: v.boolean(),
+                  timeBlocks: v.array(
+                    v.object({
+                      start: v.string(),
+                      end: v.string(),
+                    }),
+                  ),
+                }),
+                tuesday: v.object({
+                  isFullDayOff: v.boolean(),
+                  timeBlocks: v.array(
+                    v.object({
+                      start: v.string(),
+                      end: v.string(),
+                    }),
+                  ),
+                }),
+                wednesday: v.object({
+                  isFullDayOff: v.boolean(),
+                  timeBlocks: v.array(
+                    v.object({
+                      start: v.string(),
+                      end: v.string(),
+                    }),
+                  ),
+                }),
+                thursday: v.object({
+                  isFullDayOff: v.boolean(),
+                  timeBlocks: v.array(
+                    v.object({
+                      start: v.string(),
+                      end: v.string(),
+                    }),
+                  ),
+                }),
+                friday: v.object({
+                  isFullDayOff: v.boolean(),
+                  timeBlocks: v.array(
+                    v.object({
+                      start: v.string(),
+                      end: v.string(),
+                    }),
+                  ),
+                }),
+              }),
+            ),
+          ),
           ui: v.optional(
             v.object({
               calendar: v.optional(
@@ -338,6 +390,88 @@ export const updateCalendarPreferences = mutation({
         ui: {
           ...currentUi,
           calendar: updatedCalendar,
+        },
+      },
+    });
+
+    return null;
+  },
+});
+
+export const updateSchedulePreferences = mutation({
+  args: {
+    semester: v.string(),
+    preferences: v.object({
+      monday: v.object({
+        isFullDayOff: v.boolean(),
+        timeBlocks: v.array(
+          v.object({
+            start: v.string(),
+            end: v.string(),
+          }),
+        ),
+      }),
+      tuesday: v.object({
+        isFullDayOff: v.boolean(),
+        timeBlocks: v.array(
+          v.object({
+            start: v.string(),
+            end: v.string(),
+          }),
+        ),
+      }),
+      wednesday: v.object({
+        isFullDayOff: v.boolean(),
+        timeBlocks: v.array(
+          v.object({
+            start: v.string(),
+            end: v.string(),
+          }),
+        ),
+      }),
+      thursday: v.object({
+        isFullDayOff: v.boolean(),
+        timeBlocks: v.array(
+          v.object({
+            start: v.string(),
+            end: v.string(),
+          }),
+        ),
+      }),
+      friday: v.object({
+        isFullDayOff: v.boolean(),
+        timeBlocks: v.array(
+          v.object({
+            start: v.string(),
+            end: v.string(),
+          }),
+        ),
+      }),
+    }),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      throw new Error("User not found");
+    }
+
+    const user = await ctx.db.get(userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get existing preferences or create new structure
+    const currentPreferences = user.preferences ?? {};
+    const currentSchedule = currentPreferences.schedule ?? {};
+
+    // Update preferences for the specific semester
+    await ctx.db.patch(userId, {
+      preferences: {
+        ...currentPreferences,
+        schedule: {
+          ...currentSchedule,
+          [args.semester]: args.preferences,
         },
       },
     });
