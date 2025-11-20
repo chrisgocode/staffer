@@ -35,31 +35,19 @@ export default defineSchema({
     preferences: v.optional(
       v.object({
         schedule: v.optional(
-          v.object({
-            monday: v.optional(
-              v.object({
+          v.record(
+            v.string(),
+            v.object({
+              monday: v.object({
                 isFullDayOff: v.boolean(),
                 timeBlocks: v.array(
                   v.object({
-                    start: v.string(), // "09:00 AM"
-                    end: v.string(), // "12:00 PM"
+                    start: v.string(), // "09:00" (24-hour format)
+                    end: v.string(), // "17:00" (24-hour format)
                   }),
                 ),
               }),
-            ),
-            tuesday: v.optional(
-              v.object({
-                isFullDayOff: v.boolean(),
-                timeBlocks: v.array(
-                  v.object({
-                    start: v.string(),
-                    end: v.string(),
-                  }),
-                ),
-              }),
-            ),
-            wednesday: v.optional(
-              v.object({
+              tuesday: v.object({
                 isFullDayOff: v.boolean(),
                 timeBlocks: v.array(
                   v.object({
@@ -68,9 +56,7 @@ export default defineSchema({
                   }),
                 ),
               }),
-            ),
-            thursday: v.optional(
-              v.object({
+              wednesday: v.object({
                 isFullDayOff: v.boolean(),
                 timeBlocks: v.array(
                   v.object({
@@ -79,9 +65,7 @@ export default defineSchema({
                   }),
                 ),
               }),
-            ),
-            friday: v.optional(
-              v.object({
+              thursday: v.object({
                 isFullDayOff: v.boolean(),
                 timeBlocks: v.array(
                   v.object({
@@ -90,8 +74,17 @@ export default defineSchema({
                   }),
                 ),
               }),
-            ),
-          }),
+              friday: v.object({
+                isFullDayOff: v.boolean(),
+                timeBlocks: v.array(
+                  v.object({
+                    start: v.string(),
+                    end: v.string(),
+                  }),
+                ),
+              }),
+            }),
+          ),
         ),
         ui: v.optional(
           v.object({

@@ -55,12 +55,38 @@ export interface ClassSchedule {
   dates: string;
 }
 
+interface SchedulePreferences {
+  monday: {
+    isFullDayOff: boolean;
+    timeBlocks: Array<{ start: string; end: string }>;
+  };
+  tuesday: {
+    isFullDayOff: boolean;
+    timeBlocks: Array<{ start: string; end: string }>;
+  };
+  wednesday: {
+    isFullDayOff: boolean;
+    timeBlocks: Array<{ start: string; end: string }>;
+  };
+  thursday: {
+    isFullDayOff: boolean;
+    timeBlocks: Array<{ start: string; end: string }>;
+  };
+  friday: {
+    isFullDayOff: boolean;
+    timeBlocks: Array<{ start: string; end: string }>;
+  };
+}
+
 export interface StaffMember {
   _id: Id<"users">;
   name: string;
   email: string;
   color: string;
   classSchedule?: ClassSchedule[];
+  preferences?: {
+    schedule?: Record<string, SchedulePreferences>;
+  };
 }
 
 export interface DropPreview {

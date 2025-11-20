@@ -46,18 +46,30 @@ export function BlockedTimeOverlay({
           }
 
           const position = getShiftPosition(clampedStart, clampedEnd);
+          const isPreference = range.source === "preference";
+          const label = isPreference ? "Preference" : "Class Time";
+          const bgColor = isPreference
+            ? "bg-amber-500/20 bg-stripe-pattern"
+            : "bg-red-500/20 bg-stripe-pattern";
+          const borderColor = isPreference
+            ? "border-amber-400/50"
+            : "border-red-400/50";
+          const textColor = isPreference ? "text-amber-700" : "text-red-600";
+
           return (
             <div
               key={`${range.dayOfWeek}-${range.startTime}-${index}`}
-              className="absolute left-0 right-0 bg-red-500/20 bg-stripe-pattern border-2 border-red-400/50 rounded-md"
+              className={`absolute left-0 right-0 ${bgColor} border-2 ${borderColor} rounded-md`}
               style={{
                 top: position.top,
                 height: position.height,
               }}
             >
               <div className="flex items-center justify-center h-full">
-                <span className="text-xs font-semibold text-red-600 bg-white/80 px-2 py-1 rounded">
-                  Class Time
+                <span
+                  className={`text-xs font-semibold ${textColor} bg-white/80 px-2 py-1 rounded`}
+                >
+                  {label}
                 </span>
               </div>
             </div>

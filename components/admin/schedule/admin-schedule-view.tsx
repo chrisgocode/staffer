@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { getWeekDates } from "@/lib/schedule-utils";
 import {
-  getBlockedRangesForUser,
+  getAllBlockedRanges,
   type BlockedTimeRange,
 } from "@/lib/schedule-conflict-utils";
 import { useScheduleData } from "@/hooks/use-schedule-data";
@@ -49,46 +49,60 @@ export function StaffScheduleCalendar() {
     shifts,
     onShiftsChange: setShifts,
     staffMembers,
+    selectedSemester,
   });
   const resizeHandlers = useShiftResize({
     shifts,
     onShiftsChange: setShifts,
     staffMembers,
+    selectedSemester,
   });
 
   // Calculate blocked ranges for dragged student, moving shift, or resizing shift
   const blockedRanges = useMemo(() => {
     let classSchedule = null;
+    let preferences = null;
+    let staffMember = null;
 
     // Check if dragging a staff member from sidebar
-    if (dragDropHandlers.draggedStaff?.classSchedule) {
-      classSchedule = dragDropHandlers.draggedStaff.classSchedule;
+    if (dragDropHandlers.draggedStaff) {
+      staffMember = dragDropHandlers.draggedStaff;
+      classSchedule = staffMember.classSchedule ?? null;
+      preferences = staffMember.preferences?.schedule ?? null;
     }
     // Check if moving an existing shift card
     else if (dragDropHandlers.movingShift) {
-      const staffMember = staffMembers.find(
+      staffMember = staffMembers.find(
         (s) => s._id === dragDropHandlers.movingShift?.userId,
       );
-      if (staffMember?.classSchedule) {
-        classSchedule = staffMember.classSchedule;
+      if (staffMember) {
+        classSchedule = staffMember.classSchedule ?? null;
+        preferences = staffMember.preferences?.schedule ?? null;
       }
     }
     // Check if resizing an existing shift
     else if (resizeHandlers.resizingShift) {
-      const staffMember = staffMembers.find(
+      staffMember = staffMembers.find(
         (s) => s._id === resizeHandlers.resizingShift?.userId,
       );
-      if (staffMember?.classSchedule) {
-        classSchedule = staffMember.classSchedule;
+      if (staffMember) {
+        classSchedule = staffMember.classSchedule ?? null;
+        preferences = staffMember.preferences?.schedule ?? null;
       }
     }
 
-    if (!classSchedule) return null;
+    // Return null if no staff member is being interacted with
+    if (!staffMember) return null;
 
     // Return map of dayIndex -> BlockedTimeRange[]
     const rangesMap: Record<number, BlockedTimeRange[]> = {};
     for (let day = 0; day < 5; day++) {
-      rangesMap[day] = getBlockedRangesForUser(classSchedule, day);
+      rangesMap[day] = getAllBlockedRanges(
+        classSchedule ?? undefined,
+        preferences ?? undefined,
+        selectedSemester,
+        day,
+      );
     }
     return rangesMap;
   }, [
@@ -96,6 +110,7 @@ export function StaffScheduleCalendar() {
     dragDropHandlers.movingShift,
     resizeHandlers.resizingShift,
     staffMembers,
+    selectedSemester,
   ]);
 
   const bringToFront = (shiftId: string) => {

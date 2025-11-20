@@ -128,8 +128,10 @@ export const getScheduledEventsForToken = internalQuery({
       .withIndex("by_calendar_token", (q) => q.eq("calendarToken", args.token))
       .unique();
 
+    // return empty array if user not found (token invalid/regenerated)
+    // this prevents errors when calendar clients use stale tokens
     if (!user) {
-      throw new Error("User not found");
+      return [];
     }
 
     const results: Array<

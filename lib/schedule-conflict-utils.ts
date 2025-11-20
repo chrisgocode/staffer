@@ -9,6 +9,7 @@ export interface BlockedTimeRange {
   dayOfWeek: number; // 0-4 (Mon-Fri)
   startTime: string; // "12:30" (24-hour format)
   endTime: string; // "13:45" (24-hour format)
+  source: "class" | "preference"; // Source of the blocked range
 }
 
 /**
@@ -84,6 +85,7 @@ export function getBlockedRangesForUser(
         dayOfWeek,
         startTime: parse12HourTo24Hour(classItem.startTime),
         endTime: parse12HourTo24Hour(classItem.endTime),
+        source: "class",
       });
     }
   }
@@ -135,4 +137,96 @@ export function doesShiftConflict(
   }
 
   return false;
+}
+
+interface SchedulePreferences {
+  monday: {
+    isFullDayOff: boolean;
+    timeBlocks: Array<{ start: string; end: string }>;
+  };
+  tuesday: {
+    isFullDayOff: boolean;
+    timeBlocks: Array<{ start: string; end: string }>;
+  };
+  wednesday: {
+    isFullDayOff: boolean;
+    timeBlocks: Array<{ start: string; end: string }>;
+  };
+  thursday: {
+    isFullDayOff: boolean;
+    timeBlocks: Array<{ start: string; end: string }>;
+  };
+  friday: {
+    isFullDayOff: boolean;
+    timeBlocks: Array<{ start: string; end: string }>;
+  };
+}
+
+/**
+ * Get blocked time ranges from schedule preferences for a specific day and semester
+ */
+export function getBlockedRangesFromPreferences(
+  preferences: Record<string, SchedulePreferences> | undefined,
+  semester: string,
+  dayOfWeek: number, // 0-4 (Mon-Fri)
+): BlockedTimeRange[] {
+  if (!preferences) return [];
+
+  // Look up preferences for the specific semester
+  const semesterPreferences = preferences[semester];
+  if (!semesterPreferences) return [];
+
+  const dayMap: Record<number, keyof SchedulePreferences> = {
+    0: "monday",
+    1: "tuesday",
+    2: "wednesday",
+    3: "thursday",
+    4: "friday",
+  };
+
+  const dayKey = dayMap[dayOfWeek];
+  if (!dayKey) return [];
+
+  const dayPref = semesterPreferences[dayKey];
+  if (!dayPref) return [];
+
+  // If full day is off, return a range covering entire day
+  if (dayPref.isFullDayOff) {
+    return [
+      {
+        dayOfWeek,
+        startTime: "00:00",
+        endTime: "23:59",
+        source: "preference" as const,
+      },
+    ];
+  }
+
+  // Convert time blocks to blocked ranges
+  return dayPref.timeBlocks.map((block) => ({
+    dayOfWeek,
+    startTime: block.start, // Already in "HH:MM" format
+    endTime: block.end,
+    source: "preference" as const,
+  }));
+}
+
+/**
+ * Get all blocked ranges combining class schedule and preferences for a specific semester
+ */
+export function getAllBlockedRanges(
+  classSchedule: ClassSchedule[] | undefined,
+  preferences: Record<string, SchedulePreferences> | undefined,
+  semester: string,
+  dayOfWeek: number,
+): BlockedTimeRange[] {
+  const classRanges = getBlockedRangesForUser(classSchedule ?? [], dayOfWeek);
+  const preferenceRanges = getBlockedRangesFromPreferences(
+    preferences,
+    semester,
+    dayOfWeek,
+  );
+
+  // Combine both sources of blocked ranges
+  return [...classRanges, ...preferenceRanges];
 }
