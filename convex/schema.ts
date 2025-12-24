@@ -166,4 +166,11 @@ export default defineSchema({
     .index("by_date", ["date"])
     .index("by_semester", ["semester"])
     .index("by_monday", ["isMonday"]),
+
+  semesters: defineTable({
+    semester: v.string(),
+    startDate: v.string(),
+    endDate: v.string(),
+    createdAt: v.number(),
+  }).index("by_semester", ["semester"]),
 });

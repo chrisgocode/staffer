@@ -119,6 +119,8 @@ export const getScheduledEventsForToken = internalQuery({
         startTime: v.string(),
         endTime: v.string(),
         scheduleCreatedAt: v.number(),
+        semesterStartDate: v.optional(v.string()),
+        semesterEndDate: v.optional(v.string()),
       }),
     ),
   ),
@@ -156,6 +158,8 @@ export const getScheduledEventsForToken = internalQuery({
           startTime: string;
           endTime: string;
           scheduleCreatedAt: number;
+          semesterStartDate: string | undefined;
+          semesterEndDate: string | undefined;
         }
     > = [];
 
@@ -209,6 +213,12 @@ export const getScheduledEventsForToken = internalQuery({
     const activeSchedules = allSchedules.filter((s) => s.isActive);
 
     for (const schedule of activeSchedules) {
+      // Look up semester dates
+      const semesterData = await ctx.db
+        .query("semesters")
+        .withIndex("by_semester", (q) => q.eq("semester", schedule.semester))
+        .first();
+
       const userShifts = await ctx.db
         .query("staffShifts")
         .withIndex("by_schedule_and_user", (q) =>
@@ -226,6 +236,8 @@ export const getScheduledEventsForToken = internalQuery({
           startTime: shift.startTime,
           endTime: shift.endTime,
           scheduleCreatedAt: schedule.createdAt,
+          semesterStartDate: semesterData?.startDate,
+          semesterEndDate: semesterData?.endDate,
         });
       }
     }
@@ -344,5 +356,99 @@ export const getMondayHolidays = internalQuery({
         date: h.date,
         name: h.name,
       }));
+  },
+});
+
+// Store scraped semesters
+export const storeSemesters = internalMutation({
+  args: {
+    semesters: v.array(
+      v.object({
+        semester: v.string(),
+        startDate: v.string(),
+        endDate: v.string(),
+      }),
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    for (const semester of args.semesters) {
+      // Validate date formats (YYYY-MM-DD)
+      const startDateMatch = /^\d{4}-\d{2}-\d{2}$/.test(semester.startDate);
+      const endDateMatch = /^\d{4}-\d{2}-\d{2}$/.test(semester.endDate);
+      const parsedStart = Date.parse(semester.startDate);
+      const parsedEnd = Date.parse(semester.endDate);
+      const isValidStart = !isNaN(parsedStart);
+      const isValidEnd = !isNaN(parsedEnd);
+
+      if (!startDateMatch || !isValidStart) {
+        console.warn(
+          `Skipping semester with invalid startDate: "${semester.startDate}" (semester: "${semester.semester}")`,
+        );
+        continue;
+      }
+
+      if (!endDateMatch || !isValidEnd) {
+        console.warn(
+          `Skipping semester with invalid endDate: "${semester.endDate}" (semester: "${semester.semester}")`,
+        );
+        continue;
+      }
+
+      const existing = await ctx.db
+        .query("semesters")
+        .withIndex("by_semester", (q) => q.eq("semester", semester.semester))
+        .first();
+
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          startDate: semester.startDate,
+          endDate: semester.endDate,
+          createdAt: now,
+        });
+      } else {
+        await ctx.db.insert("semesters", {
+          semester: semester.semester,
+          startDate: semester.startDate,
+          endDate: semester.endDate,
+          createdAt: now,
+        });
+      }
+    }
+
+    return null;
+  },
+});
+
+// Get semester dates by semester name
+export const getSemesterDates = internalQuery({
+  args: {
+    semester: v.string(),
+  },
+  returns: v.union(
+    v.object({
+      semester: v.string(),
+      startDate: v.string(),
+      endDate: v.string(),
+    }),
+    v.null(),
+  ),
+  handler: async (ctx, args) => {
+    const semester = await ctx.db
+      .query("semesters")
+      .withIndex("by_semester", (q) => q.eq("semester", args.semester))
+      .first();
+
+    if (!semester) {
+      return null;
+    }
+
+    return {
+      semester: semester.semester,
+      startDate: semester.startDate,
+      endDate: semester.endDate,
+    };
   },
 });

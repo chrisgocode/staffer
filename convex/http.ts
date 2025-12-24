@@ -14,7 +14,7 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     try {
       // Authenticate request using API key
-      const apiKey = process.env.UPLOAD_HOLIDAYS_API_KEY;
+      const apiKey = process.env.HTTP_API_KEY;
       if (!apiKey) {
         return new Response(
           JSON.stringify({ error: "API key not configured" }),
@@ -263,6 +263,245 @@ http.route({
   }),
 });
 
+// Upload semesters endpoint
+http.route({
+  path: "/calendar/uploadSemesters",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const apiKey = process.env.HTTP_API_KEY;
+      if (!apiKey) {
+        return new Response(
+          JSON.stringify({ error: "API key not configured" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const authHeader = request.headers.get("Authorization");
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return new Response(
+          JSON.stringify({ error: "Missing or invalid Authorization header" }),
+          {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const providedKey = authHeader.substring(7); // Remove "Bearer " prefix
+      if (providedKey !== apiKey) {
+        return new Response(JSON.stringify({ error: "Invalid API key" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      // Parse request body
+      let body: unknown;
+      try {
+        body = await request.json();
+      } catch {
+        return new Response(
+          JSON.stringify({ error: "Invalid JSON in request body" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // Validate body structure
+      if (!body || typeof body !== "object") {
+        return new Response(
+          JSON.stringify({ error: "Request body must be an object" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const { semesters } = body as { semesters?: unknown };
+
+      // Validate semesters array exists
+      if (!semesters) {
+        return new Response(
+          JSON.stringify({ error: "Missing required field: semesters" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // Validate semesters is an array
+      if (!Array.isArray(semesters)) {
+        return new Response(
+          JSON.stringify({ error: "semesters must be an array" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // Enforce maximum array length to prevent DoS
+      const MAX_SEMESTERS = 100;
+      if (semesters.length > MAX_SEMESTERS) {
+        return new Response(
+          JSON.stringify({
+            error: `Too many semesters. Maximum allowed: ${MAX_SEMESTERS}`,
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // Validate and sanitize each semester element
+      const sanitizedSemesters: Array<{
+        semester: string;
+        startDate: string;
+        endDate: string;
+      }> = [];
+
+      for (let i = 0; i < semesters.length; i++) {
+        const semester = semesters[i];
+
+        // Validate semester is an object
+        if (
+          !semester ||
+          typeof semester !== "object" ||
+          Array.isArray(semester)
+        ) {
+          return new Response(
+            JSON.stringify({
+              error: `Invalid semester at index ${i}: must be an object`,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        const semesterObj = semester as Record<string, unknown>;
+
+        // Validate required fields
+        if (
+          typeof semesterObj.semester !== "string" ||
+          !semesterObj.semester.trim()
+        ) {
+          return new Response(
+            JSON.stringify({
+              error: `Invalid semester at index ${i}: semester must be a non-empty string`,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        if (
+          typeof semesterObj.startDate !== "string" ||
+          !semesterObj.startDate.trim()
+        ) {
+          return new Response(
+            JSON.stringify({
+              error: `Invalid semester at index ${i}: startDate must be a non-empty string`,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        if (
+          typeof semesterObj.endDate !== "string" ||
+          !semesterObj.endDate.trim()
+        ) {
+          return new Response(
+            JSON.stringify({
+              error: `Invalid semester at index ${i}: endDate must be a non-empty string`,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        // Validate date formats (YYYY-MM-DD)
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(semesterObj.startDate.trim())) {
+          return new Response(
+            JSON.stringify({
+              error: `Invalid semester at index ${i}: startDate must be in YYYY-MM-DD format`,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        if (!dateRegex.test(semesterObj.endDate.trim())) {
+          return new Response(
+            JSON.stringify({
+              error: `Invalid semester at index ${i}: endDate must be in YYYY-MM-DD format`,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        // Sanitize and normalize the semester object
+        sanitizedSemesters.push({
+          semester: semesterObj.semester.trim(),
+          startDate: semesterObj.startDate.trim(),
+          endDate: semesterObj.endDate.trim(),
+        });
+      }
+
+      // Call mutation with sanitized data
+      await ctx.runMutation(internal.calendar.storeSemesters, {
+        semesters: sanitizedSemesters,
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          count: sanitizedSemesters.length,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    } catch (error) {
+      // Handle internal server errors
+      return new Response(
+        JSON.stringify({
+          error: "Internal server error",
+          message: error instanceof Error ? error.message : "Unknown error",
+        }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+  }),
+});
+
 // Calendar ICS feed endpoint - matches any path starting with /calendar/
 http.route({
   pathPrefix: "/calendar/",
@@ -337,6 +576,8 @@ function generateICS(
         startTime: string;
         endTime: string;
         scheduleCreatedAt: number;
+        semesterStartDate?: string;
+        semesterEndDate?: string;
       }
   >,
   mondayHolidays: Array<{ date: string; name: string }>,
@@ -377,6 +618,7 @@ function generateICS(
     startTime: string;
     endTime: string;
     scheduleCreatedAt: number;
+    semesterEndDate?: string;
   }> = [];
 
   for (const item of items) {
@@ -448,9 +690,16 @@ function generateICS(
       const dtend = formatICSDateTime(endDateTime);
       const dtstamp = formatICSDateTime(new Date().toISOString());
 
-      // Calculate end date (16 weeks from start, or end of semester)
-      const endDate = new Date(firstOccurrence);
-      endDate.setDate(endDate.getDate() + 16 * 7);
+      // Calculate end date: use semester end date if available, otherwise fall back to 16 weeks
+      let endDate: Date;
+      if (item.semesterEndDate) {
+        // Use the actual semester end date
+        endDate = new Date(item.semesterEndDate);
+      } else {
+        // Fall back to 16 weeks from first occurrence
+        endDate = new Date(firstOccurrence);
+        endDate.setDate(endDate.getDate() + 16 * 7);
+      }
       const endDateStr = formatICSDate(endDate);
 
       lines.push("BEGIN:VEVENT");
@@ -472,6 +721,31 @@ function generateICS(
         lines.push(`EXDATE;TZID=America/New_York:${exdates}`);
       }
 
+      // add an EXDATE for makeup tuesdays if this is a tuesday shift
+      // when a monday holiday occurs, the monday schedule moves to tuesday,
+      // so we suppress the normal tuesday shift on that date to avoid duplicates
+      if (item.dayOfWeek === 1 && mondayHolidays.length > 0) {
+        const makeupTuesdayExdates = mondayHolidays
+          .map((holiday) => {
+            // makeup tuesday is the day after the monday holiday
+            const holidayDate = new Date(holiday.date);
+            const tuesdayDate = new Date(holidayDate);
+            tuesdayDate.setDate(tuesdayDate.getDate() + 1);
+            const tuesdayYear = tuesdayDate.getFullYear();
+            const tuesdayMonth = String(tuesdayDate.getMonth() + 1).padStart(
+              2,
+              "0",
+            );
+            const tuesdayDay = String(tuesdayDate.getDate()).padStart(2, "0");
+            const [hours, minutes] = item.startTime.split(":").map(Number);
+            return formatICSDateTime(
+              `${tuesdayYear}-${tuesdayMonth}-${tuesdayDay}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`,
+            );
+          })
+          .join(",");
+        lines.push(`EXDATE;TZID=America/New_York:${makeupTuesdayExdates}`);
+      }
+
       lines.push(`RRULE:FREQ=WEEKLY;BYDAY=${icsDay};UNTIL=${endDateStr}`);
       lines.push(`SUMMARY:${escapeICSText(`Staff Shift - ${item.semester}`)}`);
       lines.push(
@@ -489,6 +763,7 @@ function generateICS(
           startTime: item.startTime,
           endTime: item.endTime,
           scheduleCreatedAt: item.scheduleCreatedAt,
+          semesterEndDate: item.semesterEndDate,
         });
       }
     }
