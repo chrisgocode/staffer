@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Card } from "@/components/ui/card";
-import { getWeekDates } from "@/lib/schedule-utils";
 import {
   getAllBlockedRanges,
   type BlockedTimeRange,
@@ -19,14 +18,12 @@ import { toast } from "sonner";
 
 export function StaffScheduleCalendar() {
   const [weekOffset, setWeekOffset] = useState(0);
-  const [selectedSemester, setSelectedSemester] = useState("Fall 2025"); // hardcoding for now
+  const [selectedSemester, setSelectedSemester] = useState("Spring 2026"); // hardcoding for now
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [isPublishing, setIsPublishing] = useState(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const hasInitializedRef = useRef(false);
-
-  const weekDates = getWeekDates(weekOffset);
 
   const { publishedShifts, staffMembers, publishSchedule, isLoading } =
     useScheduleData(selectedSemester);
@@ -230,7 +227,6 @@ export function StaffScheduleCalendar() {
       <Card className="w-full h-full bg-card border-border">
         <div className="p-6 space-y-6">
           <ScheduleHeader
-            weekDates={weekDates}
             selectedSemester={selectedSemester}
             onSemesterChange={setSelectedSemester}
             weekOffset={weekOffset}
@@ -249,7 +245,6 @@ export function StaffScheduleCalendar() {
             />
 
             <ScheduleGrid
-              weekDates={weekDates}
               shifts={shifts}
               dropPreview={dragDropHandlers.dropPreview}
               movingShift={dragDropHandlers.movingShift}
