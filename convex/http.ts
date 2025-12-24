@@ -618,6 +618,7 @@ function generateICS(
     startTime: string;
     endTime: string;
     scheduleCreatedAt: number;
+    semesterStartDate?: string;
     semesterEndDate?: string;
   }> = [];
 
@@ -655,13 +656,18 @@ function generateICS(
       const icsDay = dayNames[item.dayOfWeek];
 
       // Calculate first occurrence date
-      const scheduleStartDate = new Date(item.scheduleCreatedAt);
+      // Use semester start date if available, otherwise fall back to schedule creation time
+      const scheduleStartDate = item.semesterStartDate
+        ? parseISODateLocal(item.semesterStartDate)
+        : new Date(item.scheduleCreatedAt);
       const currentDay = scheduleStartDate.getDay();
       // Convert JavaScript day (0=Sunday) to our dayOfWeek (0=Monday)
       const jsDayToOurDay = (jsDay: number) => (jsDay + 6) % 7;
       const currentDayOur = jsDayToOurDay(currentDay);
       let daysToAdd = (item.dayOfWeek - currentDayOur + 7) % 7;
-      if (daysToAdd === 0) {
+      // When using semester start date, don't check time-of-day (it's midnight)
+      // Only check time for legacy fallback (scheduleCreatedAt)
+      if (daysToAdd === 0 && !item.semesterStartDate) {
         // Check if we've passed the time today
         const [hours, minutes] = item.startTime.split(":").map(Number);
         const shiftTime = hours * 60 + minutes;
@@ -702,6 +708,20 @@ function generateICS(
       }
       const endDateStr = formatICSDate(endDate);
 
+      // filter holidays to only those within this shift's semester window
+      const semesterStart = item.semesterStartDate
+        ? parseISODateLocal(item.semesterStartDate)
+        : null;
+      const semesterEnd = item.semesterEndDate
+        ? parseISODateLocal(item.semesterEndDate)
+        : null;
+      const relevantMondayHolidays = mondayHolidays.filter((h) => {
+        const d = parseISODateLocal(h.date);
+        if (semesterStart && d < semesterStart) return false;
+        if (semesterEnd && d > semesterEnd) return false;
+        return true;
+      });
+
       lines.push("BEGIN:VEVENT");
       lines.push(`UID:${item.shiftId}@nc-events-shift`);
       lines.push(`DTSTAMP:${dtstamp}`);
@@ -709,8 +729,8 @@ function generateICS(
       lines.push(`DTEND;TZID=America/New_York:${dtend}`);
 
       // Add EXDATE for Monday holidays if this is a Monday shift
-      if (item.dayOfWeek === 0 && mondayHolidays.length > 0) {
-        const exdates = mondayHolidays
+      if (item.dayOfWeek === 0 && relevantMondayHolidays.length > 0) {
+        const exdates = relevantMondayHolidays
           .map((holiday) => {
             const [hours, minutes] = item.startTime.split(":").map(Number);
             return formatICSDateTime(
@@ -724,11 +744,11 @@ function generateICS(
       // add an EXDATE for makeup tuesdays if this is a tuesday shift
       // when a monday holiday occurs, the monday schedule moves to tuesday,
       // so we suppress the normal tuesday shift on that date to avoid duplicates
-      if (item.dayOfWeek === 1 && mondayHolidays.length > 0) {
-        const makeupTuesdayExdates = mondayHolidays
+      if (item.dayOfWeek === 1 && relevantMondayHolidays.length > 0) {
+        const makeupTuesdayExdates = relevantMondayHolidays
           .map((holiday) => {
             // makeup tuesday is the day after the monday holiday
-            const holidayDate = new Date(holiday.date);
+            const holidayDate = parseISODateLocal(holiday.date);
             const tuesdayDate = new Date(holidayDate);
             tuesdayDate.setDate(tuesdayDate.getDate() + 1);
             const tuesdayYear = tuesdayDate.getFullYear();
@@ -763,6 +783,7 @@ function generateICS(
           startTime: item.startTime,
           endTime: item.endTime,
           scheduleCreatedAt: item.scheduleCreatedAt,
+          semesterStartDate: item.semesterStartDate,
           semesterEndDate: item.semesterEndDate,
         });
       }
@@ -771,11 +792,25 @@ function generateICS(
 
   // Create one-time Tuesday events for each Monday holiday
   for (const holiday of mondayHolidays) {
-    const holidayDate = new Date(holiday.date);
+    const holidayDate = parseISODateLocal(holiday.date);
     const tuesdayDate = new Date(holidayDate);
     tuesdayDate.setDate(tuesdayDate.getDate() + 1); // Next day (Tuesday)
 
     for (const shift of mondayShifts) {
+      // Only create makeup event if holiday falls within the shift's semester
+      const shiftSemesterStart = shift.semesterStartDate
+        ? parseISODateLocal(shift.semesterStartDate)
+        : null;
+      const shiftSemesterEnd = shift.semesterEndDate
+        ? parseISODateLocal(shift.semesterEndDate)
+        : null;
+
+      // Skip if holiday is outside semester range
+      if (shiftSemesterStart && holidayDate < shiftSemesterStart) continue;
+      if (shiftSemesterEnd && holidayDate > shiftSemesterEnd) continue;
+      // Skip if Tuesday makeup would be after semester end
+      if (shiftSemesterEnd && tuesdayDate > shiftSemesterEnd) continue;
+
       const [hours, minutes] = shift.startTime.split(":").map(Number);
       const [endHours, endMinutes] = shift.endTime.split(":").map(Number);
 
@@ -831,6 +866,13 @@ function formatICSDate(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}${month}${day}`;
+}
+
+// Parse ISO date-only string (YYYY-MM-DD) into a local Date
+// Avoids UTC parsing quirks of new Date("YYYY-MM-DD")
+function parseISODateLocal(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
 }
 
 // Escape special characters in ICS text fields
