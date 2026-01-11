@@ -1,11 +1,10 @@
-import { timeSlots, daysOfWeek, formatDate } from "@/lib/schedule-utils";
+import { timeSlots, daysOfWeek } from "@/lib/schedule-utils";
 import { DayColumn } from "./DayColumn";
 import type { Shift, DropPreview } from "@/lib/types";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { BlockedTimeRange } from "@/lib/schedule-conflict-utils";
 
 interface ScheduleGridProps {
-  weekDates: [Date, Date, Date, Date, Date];
   shifts: Shift[];
   dropPreview: DropPreview | null;
   movingShift: Shift | null;
@@ -33,7 +32,6 @@ interface ScheduleGridProps {
 }
 
 export function ScheduleGrid({
-  weekDates,
   shifts,
   dropPreview,
   movingShift,
@@ -76,12 +74,9 @@ export function ScheduleGrid({
         <div className="p-3 text-xs font-medium text-muted-foreground">
           Time
         </div>
-        {daysOfWeek.map((day, index) => (
+        {daysOfWeek.map((day) => (
           <div key={day} className="p-3 text-center border-l border-border">
             <div className="text-sm font-semibold text-foreground">{day}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">
-              {weekDates[index] ? formatDate(weekDates[index]) : "—"}
-            </div>
           </div>
         ))}
       </div>

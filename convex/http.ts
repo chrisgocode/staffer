@@ -14,7 +14,7 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     try {
       // Authenticate request using API key
-      const apiKey = process.env.UPLOAD_HOLIDAYS_API_KEY;
+      const apiKey = process.env.HTTP_API_KEY;
       if (!apiKey) {
         return new Response(
           JSON.stringify({ error: "API key not configured" }),
@@ -263,6 +263,245 @@ http.route({
   }),
 });
 
+// Upload semesters endpoint
+http.route({
+  path: "/calendar/uploadSemesters",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const apiKey = process.env.HTTP_API_KEY;
+      if (!apiKey) {
+        return new Response(
+          JSON.stringify({ error: "API key not configured" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const authHeader = request.headers.get("Authorization");
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return new Response(
+          JSON.stringify({ error: "Missing or invalid Authorization header" }),
+          {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const providedKey = authHeader.substring(7); // Remove "Bearer " prefix
+      if (providedKey !== apiKey) {
+        return new Response(JSON.stringify({ error: "Invalid API key" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      // Parse request body
+      let body: unknown;
+      try {
+        body = await request.json();
+      } catch {
+        return new Response(
+          JSON.stringify({ error: "Invalid JSON in request body" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // Validate body structure
+      if (!body || typeof body !== "object") {
+        return new Response(
+          JSON.stringify({ error: "Request body must be an object" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      const { semesters } = body as { semesters?: unknown };
+
+      // Validate semesters array exists
+      if (!semesters) {
+        return new Response(
+          JSON.stringify({ error: "Missing required field: semesters" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // Validate semesters is an array
+      if (!Array.isArray(semesters)) {
+        return new Response(
+          JSON.stringify({ error: "semesters must be an array" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // Enforce maximum array length to prevent DoS
+      const MAX_SEMESTERS = 100;
+      if (semesters.length > MAX_SEMESTERS) {
+        return new Response(
+          JSON.stringify({
+            error: `Too many semesters. Maximum allowed: ${MAX_SEMESTERS}`,
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      // Validate and sanitize each semester element
+      const sanitizedSemesters: Array<{
+        semester: string;
+        startDate: string;
+        endDate: string;
+      }> = [];
+
+      for (let i = 0; i < semesters.length; i++) {
+        const semester = semesters[i];
+
+        // Validate semester is an object
+        if (
+          !semester ||
+          typeof semester !== "object" ||
+          Array.isArray(semester)
+        ) {
+          return new Response(
+            JSON.stringify({
+              error: `Invalid semester at index ${i}: must be an object`,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        const semesterObj = semester as Record<string, unknown>;
+
+        // Validate required fields
+        if (
+          typeof semesterObj.semester !== "string" ||
+          !semesterObj.semester.trim()
+        ) {
+          return new Response(
+            JSON.stringify({
+              error: `Invalid semester at index ${i}: semester must be a non-empty string`,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        if (
+          typeof semesterObj.startDate !== "string" ||
+          !semesterObj.startDate.trim()
+        ) {
+          return new Response(
+            JSON.stringify({
+              error: `Invalid semester at index ${i}: startDate must be a non-empty string`,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        if (
+          typeof semesterObj.endDate !== "string" ||
+          !semesterObj.endDate.trim()
+        ) {
+          return new Response(
+            JSON.stringify({
+              error: `Invalid semester at index ${i}: endDate must be a non-empty string`,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        // Validate date formats (YYYY-MM-DD)
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(semesterObj.startDate.trim())) {
+          return new Response(
+            JSON.stringify({
+              error: `Invalid semester at index ${i}: startDate must be in YYYY-MM-DD format`,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        if (!dateRegex.test(semesterObj.endDate.trim())) {
+          return new Response(
+            JSON.stringify({
+              error: `Invalid semester at index ${i}: endDate must be in YYYY-MM-DD format`,
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+
+        // Sanitize and normalize the semester object
+        sanitizedSemesters.push({
+          semester: semesterObj.semester.trim(),
+          startDate: semesterObj.startDate.trim(),
+          endDate: semesterObj.endDate.trim(),
+        });
+      }
+
+      // Call mutation with sanitized data
+      await ctx.runMutation(internal.calendar.storeSemesters, {
+        semesters: sanitizedSemesters,
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          count: sanitizedSemesters.length,
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    } catch (error) {
+      // Handle internal server errors
+      return new Response(
+        JSON.stringify({
+          error: "Internal server error",
+          message: error instanceof Error ? error.message : "Unknown error",
+        }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+  }),
+});
+
 // Calendar ICS feed endpoint - matches any path starting with /calendar/
 http.route({
   pathPrefix: "/calendar/",
@@ -337,6 +576,8 @@ function generateICS(
         startTime: string;
         endTime: string;
         scheduleCreatedAt: number;
+        semesterStartDate?: string;
+        semesterEndDate?: string;
       }
   >,
   mondayHolidays: Array<{ date: string; name: string }>,
@@ -377,6 +618,8 @@ function generateICS(
     startTime: string;
     endTime: string;
     scheduleCreatedAt: number;
+    semesterStartDate?: string;
+    semesterEndDate?: string;
   }> = [];
 
   for (const item of items) {
@@ -413,13 +656,18 @@ function generateICS(
       const icsDay = dayNames[item.dayOfWeek];
 
       // Calculate first occurrence date
-      const scheduleStartDate = new Date(item.scheduleCreatedAt);
+      // Use semester start date if available, otherwise fall back to schedule creation time
+      const scheduleStartDate = item.semesterStartDate
+        ? parseISODateLocal(item.semesterStartDate)
+        : new Date(item.scheduleCreatedAt);
       const currentDay = scheduleStartDate.getDay();
       // Convert JavaScript day (0=Sunday) to our dayOfWeek (0=Monday)
       const jsDayToOurDay = (jsDay: number) => (jsDay + 6) % 7;
       const currentDayOur = jsDayToOurDay(currentDay);
       let daysToAdd = (item.dayOfWeek - currentDayOur + 7) % 7;
-      if (daysToAdd === 0) {
+      // When using semester start date, don't check time-of-day (it's midnight)
+      // Only check time for legacy fallback (scheduleCreatedAt)
+      if (daysToAdd === 0 && !item.semesterStartDate) {
         // Check if we've passed the time today
         const [hours, minutes] = item.startTime.split(":").map(Number);
         const shiftTime = hours * 60 + minutes;
@@ -448,10 +696,31 @@ function generateICS(
       const dtend = formatICSDateTime(endDateTime);
       const dtstamp = formatICSDateTime(new Date().toISOString());
 
-      // Calculate end date (16 weeks from start, or end of semester)
-      const endDate = new Date(firstOccurrence);
-      endDate.setDate(endDate.getDate() + 16 * 7);
+      // Calculate end date: use semester end date if available, otherwise fall back to 16 weeks
+      let endDate: Date;
+      if (item.semesterEndDate) {
+        // Use the actual semester end date
+        endDate = new Date(item.semesterEndDate);
+      } else {
+        // Fall back to 16 weeks from first occurrence
+        endDate = new Date(firstOccurrence);
+        endDate.setDate(endDate.getDate() + 16 * 7);
+      }
       const endDateStr = formatICSDate(endDate);
+
+      // filter holidays to only those within this shift's semester window
+      const semesterStart = item.semesterStartDate
+        ? parseISODateLocal(item.semesterStartDate)
+        : null;
+      const semesterEnd = item.semesterEndDate
+        ? parseISODateLocal(item.semesterEndDate)
+        : null;
+      const relevantMondayHolidays = mondayHolidays.filter((h) => {
+        const d = parseISODateLocal(h.date);
+        if (semesterStart && d < semesterStart) return false;
+        if (semesterEnd && d > semesterEnd) return false;
+        return true;
+      });
 
       lines.push("BEGIN:VEVENT");
       lines.push(`UID:${item.shiftId}@nc-events-shift`);
@@ -460,8 +729,8 @@ function generateICS(
       lines.push(`DTEND;TZID=America/New_York:${dtend}`);
 
       // Add EXDATE for Monday holidays if this is a Monday shift
-      if (item.dayOfWeek === 0 && mondayHolidays.length > 0) {
-        const exdates = mondayHolidays
+      if (item.dayOfWeek === 0 && relevantMondayHolidays.length > 0) {
+        const exdates = relevantMondayHolidays
           .map((holiday) => {
             const [hours, minutes] = item.startTime.split(":").map(Number);
             return formatICSDateTime(
@@ -470,6 +739,31 @@ function generateICS(
           })
           .join(",");
         lines.push(`EXDATE;TZID=America/New_York:${exdates}`);
+      }
+
+      // add an EXDATE for makeup tuesdays if this is a tuesday shift
+      // when a monday holiday occurs, the monday schedule moves to tuesday,
+      // so we suppress the normal tuesday shift on that date to avoid duplicates
+      if (item.dayOfWeek === 1 && relevantMondayHolidays.length > 0) {
+        const makeupTuesdayExdates = relevantMondayHolidays
+          .map((holiday) => {
+            // makeup tuesday is the day after the monday holiday
+            const holidayDate = parseISODateLocal(holiday.date);
+            const tuesdayDate = new Date(holidayDate);
+            tuesdayDate.setDate(tuesdayDate.getDate() + 1);
+            const tuesdayYear = tuesdayDate.getFullYear();
+            const tuesdayMonth = String(tuesdayDate.getMonth() + 1).padStart(
+              2,
+              "0",
+            );
+            const tuesdayDay = String(tuesdayDate.getDate()).padStart(2, "0");
+            const [hours, minutes] = item.startTime.split(":").map(Number);
+            return formatICSDateTime(
+              `${tuesdayYear}-${tuesdayMonth}-${tuesdayDay}T${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`,
+            );
+          })
+          .join(",");
+        lines.push(`EXDATE;TZID=America/New_York:${makeupTuesdayExdates}`);
       }
 
       lines.push(`RRULE:FREQ=WEEKLY;BYDAY=${icsDay};UNTIL=${endDateStr}`);
@@ -489,6 +783,8 @@ function generateICS(
           startTime: item.startTime,
           endTime: item.endTime,
           scheduleCreatedAt: item.scheduleCreatedAt,
+          semesterStartDate: item.semesterStartDate,
+          semesterEndDate: item.semesterEndDate,
         });
       }
     }
@@ -496,11 +792,25 @@ function generateICS(
 
   // Create one-time Tuesday events for each Monday holiday
   for (const holiday of mondayHolidays) {
-    const holidayDate = new Date(holiday.date);
+    const holidayDate = parseISODateLocal(holiday.date);
     const tuesdayDate = new Date(holidayDate);
     tuesdayDate.setDate(tuesdayDate.getDate() + 1); // Next day (Tuesday)
 
     for (const shift of mondayShifts) {
+      // Only create makeup event if holiday falls within the shift's semester
+      const shiftSemesterStart = shift.semesterStartDate
+        ? parseISODateLocal(shift.semesterStartDate)
+        : null;
+      const shiftSemesterEnd = shift.semesterEndDate
+        ? parseISODateLocal(shift.semesterEndDate)
+        : null;
+
+      // Skip if holiday is outside semester range
+      if (shiftSemesterStart && holidayDate < shiftSemesterStart) continue;
+      if (shiftSemesterEnd && holidayDate > shiftSemesterEnd) continue;
+      // Skip if Tuesday makeup would be after semester end
+      if (shiftSemesterEnd && tuesdayDate > shiftSemesterEnd) continue;
+
       const [hours, minutes] = shift.startTime.split(":").map(Number);
       const [endHours, endMinutes] = shift.endTime.split(":").map(Number);
 
@@ -556,6 +866,13 @@ function formatICSDate(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}${month}${day}`;
+}
+
+// Parse ISO date-only string (YYYY-MM-DD) into a local Date
+// Avoids UTC parsing quirks of new Date("YYYY-MM-DD")
+function parseISODateLocal(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
 }
 
 // Escape special characters in ICS text fields
