@@ -91,9 +91,10 @@ export function useShiftDragDrop({
       return false;
     }
 
+    // Only check class schedule conflicts - preferences are informational only for admins
     const blockedRanges = getAllBlockedRanges(
       staffMember.classSchedule ?? undefined,
-      staffMember.preferences?.schedule ?? undefined,
+      undefined, // Ignore preferences - admins can schedule over them
       selectedSemester,
       dayIndex,
     );
@@ -143,7 +144,7 @@ export function useShiftDragDrop({
           dropPreview.endTime,
         )
       ) {
-        toast.error("Cannot schedule shift during class time or preferences");
+        toast.error("Cannot schedule shift during class time");
         setMovingShift(null);
         setDropPreview(null);
         return;
@@ -179,7 +180,7 @@ export function useShiftDragDrop({
         ),
       );
     } else if (draggedStaff && dropPreview) {
-      // Check for conflicts with student's class schedule and preferences
+      // Check for conflicts with student's class schedule (preferences are informational only)
       if (
         checkScheduleConflict(
           draggedStaff,
@@ -188,7 +189,7 @@ export function useShiftDragDrop({
           dropPreview.endTime,
         )
       ) {
-        toast.error("Cannot schedule shift during class time or preferences");
+        toast.error("Cannot schedule shift during class time");
         setDraggedStaff(null);
         setDropPreview(null);
         return;
