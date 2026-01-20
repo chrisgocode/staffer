@@ -133,6 +133,12 @@ export const updateEvent = mutation({
   handler: async (ctx, args) => {
     await requireEventManager(ctx);
 
+    // Fetch existing event to validate time changes
+    const existingEvent = await ctx.db.get(args.eventId);
+    if (!existingEvent) {
+      throw new Error("Event not found");
+    }
+
     const updateData: Partial<{
       title: string;
       description: string | undefined;
@@ -158,9 +164,13 @@ export const updateEvent = mutation({
     if (args.spotsAvailable !== undefined)
       updateData.spotsAvailable = args.spotsAvailable;
 
-    // Validate that endTime is strictly after startTime when both are being updated
-    if (args.startTime !== undefined && args.endTime !== undefined) {
-      if (args.endTime <= args.startTime) {
+    // Validate that endTime is strictly after startTime
+    // Check the final state, using updated values if provided or existing values otherwise
+    if (args.startTime !== undefined || args.endTime !== undefined) {
+      const finalStartTime = args.startTime ?? existingEvent.startTime;
+      const finalEndTime = args.endTime ?? existingEvent.endTime;
+      
+      if (finalEndTime <= finalStartTime) {
         throw new Error("endTime must be after startTime");
       }
     }
