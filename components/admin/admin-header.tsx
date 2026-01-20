@@ -38,6 +38,8 @@ export function AdminHeader({ onCreateEvent }: AdminHeaderProps) {
 
   if (!user) return null;
 
+  const isAdmin = user.role === "ADMIN";
+
   const handleSettingsClick = () => {
     router.push("/admin/settings");
   };
@@ -57,7 +59,7 @@ export function AdminHeader({ onCreateEvent }: AdminHeaderProps) {
             </Link>
             <h1 className="text-xl font-semibold">NC Event Staffing</h1>
             <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
-              Admin
+              {isAdmin ? "Admin" : "Event Manager"}
             </span>
           </div>
           <div className="flex justify-center">
@@ -65,14 +67,23 @@ export function AdminHeader({ onCreateEvent }: AdminHeaderProps) {
               <NavigationMenuList>
                 <NavigationMenuItem>
                   <NavigationMenuLink asChild>
-                    <Link href="/admin">Events</Link>
+                    {isAdmin && <Link href="/admin">Events</Link>}
                   </NavigationMenuLink>
                 </NavigationMenuItem>
-                <NavigationMenuItem>
-                  <NavigationMenuLink asChild>
-                    <Link href="/admin/schedule">Schedule</Link>
-                  </NavigationMenuLink>
-                </NavigationMenuItem>
+                {isAdmin && (
+                  <NavigationMenuItem>
+                    <NavigationMenuLink asChild>
+                      <Link href="/admin/schedule">Schedule</Link>
+                    </NavigationMenuLink>
+                  </NavigationMenuItem>
+                )}
+                {!isAdmin && (
+                  <NavigationMenuItem>
+                    <NavigationMenuLink asChild>
+                      <Link href="/student">Sign Up For Events</Link>
+                    </NavigationMenuLink>
+                  </NavigationMenuItem>
+                )}
               </NavigationMenuList>
             </NavigationMenu>
           </div>
@@ -111,10 +122,12 @@ export function AdminHeader({ onCreateEvent }: AdminHeaderProps) {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSettingsClick}>
-                    <Settings className="mr-2 h-4 w-4" />
-                    Settings
-                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem onClick={handleSettingsClick}>
+                      <Settings className="mr-2 h-4 w-4" />
+                      Settings
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={signOut}>
                     <LogOut className="mr-2 h-4 w-4" />
                     Sign Out

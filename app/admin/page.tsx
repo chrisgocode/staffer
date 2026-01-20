@@ -70,7 +70,9 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    if (!isLoading && (!user || user.role !== "ADMIN")) {
+    // Allow admins and event managers
+    const hasAccess = user?.role === "ADMIN" || user?.canManageEvents === true;
+    if (!isLoading && (!user || !hasAccess)) {
       router.push("/");
     }
   }, [user, isLoading, router]);

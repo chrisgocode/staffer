@@ -1,6 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireAdmin } from "./permissions";
+import { requireEventManager } from "./permissions";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 const eventSchema = v.object({
@@ -76,7 +76,7 @@ export const getEventsByDateRange = query({
   },
 });
 
-// Create a new event
+// Create a new event (Admin or Event Manager)
 export const createEvent = mutation({
   args: {
     title: v.string(),
@@ -90,6 +90,8 @@ export const createEvent = mutation({
   },
   returns: v.id("events"),
   handler: async (ctx, args) => {
+    await requireEventManager(ctx);
+
     const userId = await getAuthUserId(ctx);
     if (!userId) {
       throw new Error("No user found");
@@ -114,7 +116,7 @@ export const createEvent = mutation({
   },
 });
 
-// Update an event
+// Update an event (Admin or Event Manager)
 export const updateEvent = mutation({
   args: {
     eventId: v.id("events"),
@@ -129,7 +131,7 @@ export const updateEvent = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireEventManager(ctx);
 
     const updateData: Partial<{
       title: string;
@@ -168,21 +170,21 @@ export const updateEvent = mutation({
   },
 });
 
-// Delete an event
+// Delete an event (Admin or Event Manager)
 export const deleteEvent = mutation({
   args: {
     eventId: v.id("events"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireEventManager(ctx);
 
     await ctx.db.delete(args.eventId);
     return null;
   },
 });
 
-// Remove a student from an event (Admin only)
+// Remove a student from an event (Admin or Event Manager)
 export const removeStudentFromEvent = mutation({
   args: {
     eventId: v.id("events"),
@@ -190,7 +192,7 @@ export const removeStudentFromEvent = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireEventManager(ctx);
 
     // Check if event exists
     const event = await ctx.db.get(args.eventId);
