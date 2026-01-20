@@ -38,7 +38,7 @@ export function StudentHeader() {
     router.push("/student/settings");
   };
 
-  const isEventManager = user.canManageEvents === true;
+  const isEventManager = user.role === "ADMIN" || user.canManageEvents === true;
 
   return (
     <header className="border-b border-border bg-card">

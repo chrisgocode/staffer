@@ -65,11 +65,13 @@ export function AdminHeader({ onCreateEvent }: AdminHeaderProps) {
           <div className="flex justify-center">
             <NavigationMenu viewport={false}>
               <NavigationMenuList>
-                <NavigationMenuItem>
-                  <NavigationMenuLink asChild>
-                    {isAdmin && <Link href="/admin">Events</Link>}
-                  </NavigationMenuLink>
-                </NavigationMenuItem>
+                {isAdmin && (
+                  <NavigationMenuItem>
+                    <NavigationMenuLink asChild>
+                      <Link href="/admin">Events</Link>
+                    </NavigationMenuLink>
+                  </NavigationMenuItem>
+                )}
                 {isAdmin && (
                   <NavigationMenuItem>
                     <NavigationMenuLink asChild>
