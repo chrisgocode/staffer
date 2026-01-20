@@ -20,6 +20,7 @@ export const getCurrentUser = query({
       emailVerificationTime: v.optional(v.number()),
       phoneVerificationTime: v.optional(v.number()),
       role: v.optional(v.union(v.literal("ADMIN"), v.literal("STUDENT"))),
+      canManageEvents: v.optional(v.boolean()),
       calendarToken: v.optional(v.string()),
       scheduleFileId: v.optional(v.id("_storage")),
       scheduleFilename: v.optional(v.string()),
@@ -474,6 +475,62 @@ export const updateSchedulePreferences = mutation({
           [args.semester]: args.preferences,
         },
       },
+    });
+
+    return null;
+  },
+});
+
+// List all students with their event manager status (Admin only)
+export const listStudentsWithEventManagerFlag = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("users"),
+      name: v.optional(v.string()),
+      email: v.optional(v.string()),
+      canManageEvents: v.optional(v.boolean()),
+    }),
+  ),
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+
+    const students = await ctx.db
+      .query("users")
+      .withIndex("by_role", (q) => q.eq("role", "STUDENT"))
+      .collect();
+
+    return students.map((user) => ({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      canManageEvents: user.canManageEvents,
+    }));
+  },
+});
+
+// Set the canManageEvents flag for a user (Admin only)
+export const setUserCanManageEvents = mutation({
+  args: {
+    userId: v.id("users"),
+    canManageEvents: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    const userToUpdate = await ctx.db.get(args.userId);
+    if (!userToUpdate) {
+      throw new Error("User not found");
+    }
+
+    // Only allow setting this flag for students
+    if (userToUpdate.role !== "STUDENT") {
+      throw new Error("Can only grant event management access to students");
+    }
+
+    await ctx.db.patch(args.userId, {
+      canManageEvents: args.canManageEvents,
     });
 
     return null;

@@ -93,14 +93,14 @@ export function useShiftResize({
 
     const handleMouseUp = () => {
       if (draggingShift && tempShift) {
-        // Validate against class schedule and preferences
+        // Validate against class schedule only - preferences are informational only for admins
         const staffMember = staffMembers.find(
           (s) => s._id === tempShift.userId,
         );
         if (staffMember) {
           const blockedRanges = getAllBlockedRanges(
             staffMember.classSchedule ?? undefined,
-            staffMember.preferences?.schedule ?? undefined,
+            undefined, // Ignore preferences - admins can schedule over them
             selectedSemester,
             tempShift.dayOfWeek,
           );
@@ -111,7 +111,7 @@ export function useShiftResize({
               blockedRanges,
             )
           ) {
-            toast.error("Cannot resize shift into class time or preferences");
+            toast.error("Cannot resize shift into class time");
             setDraggingShift(null);
             setDragEdge(null);
             setTempShift(null);

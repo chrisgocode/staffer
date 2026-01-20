@@ -2,7 +2,7 @@ import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { requireAdmin } from "./permissions";
+import { requireEventManager, isEventManager } from "./permissions";
 
 // Generate a cryptographically secure random token
 function generateSecureToken(): string {
@@ -230,8 +230,9 @@ export const getEventSignups = query({
       throw new Error("Event not found");
     }
 
-    // Only admins and event creators can see all signups
-    if (user.role !== "ADMIN" && event.createdBy !== userId) {
+    // Only admins, event managers, and event creators can see all signups
+    const hasEventManagerAccess = await isEventManager(ctx);
+    if (!hasEventManagerAccess && event.createdBy !== userId) {
       throw new Error("You are not authorized to view signups for this event");
     }
 
@@ -296,11 +297,6 @@ export const getEventSignupsBatch = query({
       throw new Error("No user found");
     }
 
-    const user = await ctx.db.get(userId);
-    if (!user) {
-      throw new Error("User profile not found");
-    }
-
     const result: Record<
       Id<"events">,
       Array<{
@@ -329,6 +325,9 @@ export const getEventSignupsBatch = query({
       }>
     >;
 
+    // Check if user has event manager access (admin or canManageEvents)
+    const hasEventManagerAccess = await isEventManager(ctx);
+
     // Fetch signups for each event
     for (const eventId of args.eventIds) {
       const event = await ctx.db.get(eventId);
@@ -336,8 +335,8 @@ export const getEventSignupsBatch = query({
         continue;
       }
 
-      // Only admins and event creators can see all signups
-      if (user.role !== "ADMIN" && event.createdBy !== userId) {
+      // Only admins, event managers, and event creators can see all signups
+      if (!hasEventManagerAccess && event.createdBy !== userId) {
         continue;
       }
 
@@ -590,13 +589,13 @@ export const getUserSignups = query({
   },
 });
 
-// Get pending signup counts for a list of events (Admin or event creator only)
+// Get pending signup counts for a list of events (Admin or Event Manager)
 export const getPendingCountsForEvents = query({
   args: { eventIds: v.array(v.id("events")) },
   returns: v.record(v.id("events"), v.number()),
   handler: async (ctx, args) => {
-    // Only admins can see events
-    await requireAdmin(ctx);
+    // Only admins or event managers can see pending counts
+    await requireEventManager(ctx);
 
     const counts: Record<Id<"events">, number> = {};
     for (const eventId of args.eventIds) {
@@ -653,7 +652,7 @@ export const isSignedUpForEvent = query({
   },
 });
 
-// Confirm signup (Admin only)
+// Confirm signup (Admin or Event Manager)
 export const confirmSignup = mutation({
   args: {
     signupId: v.id("signups"),
@@ -666,7 +665,7 @@ export const confirmSignup = mutation({
       throw new Error("No user found");
     }
 
-    await requireAdmin(ctx);
+    await requireEventManager(ctx);
 
     // Check if signup exists
     const signup = await ctx.db.get(args.signupId);
@@ -706,14 +705,14 @@ export const confirmSignup = mutation({
   },
 });
 
-// Delete signup (Admin only)
+// Delete signup (Admin or Event Manager)
 export const deleteSignup = mutation({
   args: {
     signupId: v.id("signups"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireEventManager(ctx);
 
     // Check if signup exists
     const signup = await ctx.db.get(args.signupId);

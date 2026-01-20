@@ -19,6 +19,7 @@ export default defineSchema({
     phone: v.optional(v.string()),
     phoneVerificationTime: v.optional(v.number()),
     role: v.optional(v.union(v.literal("ADMIN"), v.literal("STUDENT"))),
+    canManageEvents: v.optional(v.boolean()),
     calendarToken: v.optional(v.string()),
     scheduleFileId: v.optional(v.id("_storage")),
     scheduleFilename: v.optional(v.string()),

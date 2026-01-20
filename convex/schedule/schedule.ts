@@ -233,10 +233,10 @@ export const addShift = mutation({
       throw new Error(`User not found: ${args.userId}`);
     }
 
-    // Validate shift against user's class schedule and preferences for this semester
+    // Validate shift against user's class schedule only - preferences are informational only
     const blockedRanges = getAllBlockedRanges(
       user.classSchedule,
-      user.preferences?.schedule,
+      undefined, // Ignore preferences - admins can schedule over them
       schedule.semester,
       args.dayOfWeek,
     );
@@ -244,7 +244,7 @@ export const addShift = mutation({
     if (doesShiftConflict(args.startTime, args.endTime, blockedRanges)) {
       const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
       throw new Error(
-        `Shift conflicts with class time or preferences for ${user.name} on ${dayNames[args.dayOfWeek]} ${args.startTime}-${args.endTime}`,
+        `Shift conflicts with class time for ${user.name} on ${dayNames[args.dayOfWeek]} ${args.startTime}-${args.endTime}`,
       );
     }
 
@@ -294,10 +294,10 @@ export const updateShift = mutation({
       throw new Error(`User not found: ${existingShift.userId}`);
     }
 
-    // Query the DB for the user's classes and preferences on that day and validate the new time range
+    // Validate against class schedule only - preferences are informational only
     const blockedRanges = getAllBlockedRanges(
       user.classSchedule,
-      user.preferences?.schedule,
+      undefined, // Ignore preferences - admins can schedule over them
       schedule.semester,
       updatedDayOfWeek,
     );
@@ -305,7 +305,7 @@ export const updateShift = mutation({
     if (doesShiftConflict(updatedStartTime, updatedEndTime, blockedRanges)) {
       const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
       throw new Error(
-        `Shift conflicts with class time or preferences for ${user.name} on ${dayNames[updatedDayOfWeek]} ${updatedStartTime}-${updatedEndTime}`,
+        `Shift conflicts with class time for ${user.name} on ${dayNames[updatedDayOfWeek]} ${updatedStartTime}-${updatedEndTime}`,
       );
     }
 
@@ -372,17 +372,17 @@ export const publishSchedule = mutation({
         throw new Error(`User not found: ${shift.userId}`);
       }
 
-      // Parse and check conflicts against both class schedule and preferences for this semester
+      // Validate against class schedule only - preferences are informational only
       const blockedRanges = getAllBlockedRanges(
         user.classSchedule,
-        user.preferences?.schedule,
+        undefined, // Ignore preferences - admins can schedule over them
         args.semester,
         dayOfWeek,
       );
 
       if (doesShiftConflict(shift.startTime, shift.endTime, blockedRanges)) {
         throw new Error(
-          `Shift conflicts with class time or preferences for ${user.name} on ${dayNames[dayOfWeek]} ${shift.startTime}-${shift.endTime}`,
+          `Shift conflicts with class time for ${user.name} on ${dayNames[dayOfWeek]} ${shift.startTime}-${shift.endTime}`,
         );
       }
     }
