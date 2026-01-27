@@ -20,6 +20,75 @@ CONVEX_URL = os.getenv("CONVEX_URL")
 CONVEX_API_KEY = os.getenv("CONVEX_API_KEY")
 CALENDAR_URL = "https://www.bu.edu/reg/calendars/"
 
+def _normalize_date_cell_text(s: str) -> str:
+    """Normalize whitespace and dash characters in date cells."""
+    # BU pages sometimes use en-dash/em-dash and non-breaking spaces
+    return (
+        s.replace("\u2013", "-")
+        .replace("\u2014", "-")
+        .replace("\u2212", "-")
+        .replace("\xa0", " ")
+        .strip()
+    )
+
+
+def parse_date_range(date_str: str, year: int) -> Optional[List[str]]:
+    """
+    Parse date ranges like:
+      - "November 25 – November 29"
+      - "April 30 – May 2"
+    into a list of ISO dates (inclusive).
+    """
+    s = _normalize_date_cell_text(date_str)
+    # Accept ranges with hyphen (after normalization)
+    if "-" not in s:
+        return None
+
+    # Split on first hyphen to allow for descriptions that might contain hyphens elsewhere
+    left, right = [part.strip() for part in s.split("-", 1)]
+    # Left must look like "Month D"
+    m_left = re.match(r"^([A-Za-z]+)\s+(\d{1,2})$", left)
+    if not m_left:
+        return None
+
+    start_month_str, start_day_str = m_left.group(1), m_left.group(2)
+
+    # Right can be "Month D" OR just "D" (reuse left month)
+    m_right_full = re.match(r"^([A-Za-z]+)\s+(\d{1,2})$", right)
+    m_right_day_only = re.match(r"^(\d{1,2})$", right)
+    if m_right_full:
+        end_month_str, end_day_str = m_right_full.group(1), m_right_full.group(2)
+    elif m_right_day_only:
+        end_month_str, end_day_str = start_month_str, m_right_day_only.group(1)
+    else:
+        return None
+
+    try:
+        start_dt = datetime.strptime(
+            f"{start_month_str} {start_day_str} {year}", "%B %d %Y"
+        )
+        # If the end month is earlier than the start month, assume the range crosses into next year
+        end_year = year
+        end_month_num = datetime.strptime(end_month_str, "%B").month
+        if end_month_num < start_dt.month:
+            end_year = year + 1
+        end_dt = datetime.strptime(
+            f"{end_month_str} {end_day_str} {end_year}", "%B %d %Y"
+        )
+    except Exception:
+        return None
+
+    if end_dt < start_dt:
+        return None
+
+    dates: List[str] = []
+    cur = start_dt
+    while cur <= end_dt:
+        dates.append(cur.strftime("%Y-%m-%d"))
+        cur = cur.replace(hour=0, minute=0, second=0, microsecond=0)
+        cur = cur.fromordinal(cur.toordinal() + 1)
+    return dates
+
 
 def parse_date(date_str: str, year: int) -> Optional[str]:
     """Convert date string like 'October 13' to ISO format 'YYYY-MM-DD'"""
@@ -129,6 +198,32 @@ def scrape_calendar() -> Tuple[List[Dict], List[Dict]]:
             date_cell = cells[0].get_text().strip()
             desc_cell = cells[1].get_text().strip()
             
+            # Handle recess ranges (e.g. "November 26 – November 30" + "Thanksgiving Recess")
+            # Only treat a range as a holiday block if the title contains "recess".
+            if date_cell and "recess" in desc_cell.lower():
+                if not current_year:
+                    current_year = year_range[0]
+                range_dates = parse_date_range(date_cell, current_year)
+                if range_dates:
+                    for d in range_dates:
+                        holidays.append(
+                            {
+                                "date": d,
+                                "name": desc_cell.strip(),
+                                "semester": f"{current_semester} {current_year}"
+                                if current_semester
+                                else None,
+                                # Ignore Monday detection for recess ranges (do not rely on it downstream)
+                                "isMonday": False,
+                                "isSubstitution": False,
+                            }
+                        )
+                    logger.info(
+                        f"Found recess: {range_dates[0]} to {range_dates[-1]} - {desc_cell.strip()}"
+                    )
+                    # Do not set current_date for range rows
+                    continue
+
             semester_info = extract_semester_from_row(date_cell)
             if semester_info:
                 # Save previous semester before starting new one
@@ -143,11 +238,20 @@ def scrape_calendar() -> Tuple[List[Dict], List[Dict]]:
             if date_cell and re.match(r'^[A-Za-z]+\s+\d+', date_cell):
                 if not current_year:
                     current_year = year_range[0]
-                parsed_date = parse_date(date_cell, current_year)
-                if parsed_date is not None:
-                    current_date = parsed_date
+                # Quietly ignore non-recess date ranges (Study Period, Exams, Commencement, etc.)
+                if parse_date_range(date_cell, current_year):
+                    logger.debug(
+                        f"Ignoring non-recess date range '{date_cell}' for year {current_year}"
+                    )
+                    current_date = None
                 else:
-                    logger.warning(f"Failed to parse date '{date_cell}' with year {current_year}, skipping")
+                    parsed_date = parse_date(date_cell, current_year)
+                    if parsed_date is not None:
+                        current_date = parsed_date
+                    else:
+                        logger.warning(
+                            f"Failed to parse date '{date_cell}' with year {current_year}, skipping"
+                        )
             
             # Check for semester start ("Classes Begin")
             if 'Classes Begin' in desc_cell and current_date and not semester_start_date:

@@ -359,6 +359,49 @@ export const getMondayHolidays = internalQuery({
   },
 });
 
+// Get all holidays (including recess days and substitution days) for date range
+export const getHolidaysInRange = internalQuery({
+  args: {
+    startDate: v.string(),
+    endDate: v.string(),
+  },
+  returns: v.array(
+    v.object({
+      date: v.string(),
+      name: v.string(),
+      isSubstitution: v.boolean(),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const start = new Date(args.startDate);
+    const end = new Date(args.endDate);
+
+    if (isNaN(start.getTime())) {
+      throw new Error(
+        `Invalid startDate: "${args.startDate}" is not a valid date`,
+      );
+    }
+    if (isNaN(end.getTime())) {
+      throw new Error(`Invalid endDate: "${args.endDate}" is not a valid date`);
+    }
+
+    // ISO date strings sort lexicographically, so we can use the by_date index
+    const candidates = await ctx.db
+      .query("holidays")
+      .withIndex("by_date", (q) => q.gte("date", args.startDate))
+      .order("asc")
+      .collect();
+
+    return candidates
+      .filter((h) => h.date <= args.endDate)
+      .map((h) => ({
+        date: h.date,
+        name: h.name,
+        isSubstitution: h.isSubstitution ?? false,
+      }));
+  },
+});
+
 // Store scraped semesters
 export const storeSemesters = internalMutation({
   args: {
