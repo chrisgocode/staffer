@@ -28,6 +28,7 @@ import { useQuery } from "convex/react";
 import { useMutation } from "convex/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitialsFromName } from "@/lib/name-util";
+import { formatDate, formatTime } from "@/lib/date-utils";
 
 interface EventDetailDialogProps {
   event: Event | null;
@@ -206,24 +207,6 @@ export function EventDetailDialog({
       });
       setIsConfirmingCancel(false);
     }
-  };
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-US", {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
-  };
-
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(":");
-    const hour = Number.parseInt(hours);
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
   };
 
   return (
