@@ -1,47 +1,48 @@
 "use client";
 
-import { GoogleSignIn } from "@/components/auth/google-sign-in";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { GoogleSignIn } from "@/components/auth/google-sign-in";
 import { Spinner } from "@/components/ui/spinner";
+import { api } from "@/convex/_generated/api";
 
 export default function HomePage() {
-  const router = useRouter();
-  const user = useQuery(api.users.getCurrentUser);
+	const router = useRouter();
+	const user = useQuery(api.users.getCurrentUser);
 
-  useEffect(() => {
-    if (user === undefined) return; // loading state
-    if (!user) return; // unauthenticated, show sign-in
-    // Send admins and event managers to admin dashboard, students to student dashboard
-    const isEventManager = user.role === "ADMIN" || user.canManageEvents === true;
-    router.replace(isEventManager ? "/admin" : "/student");
-  }, [user, router]);
+	useEffect(() => {
+		if (user === undefined) return; // loading state
+		if (!user) return; // unauthenticated, show sign-in
+		// Send admins and event managers to admin dashboard, students to student dashboard
+		const isEventManager =
+			user.role === "ADMIN" || user.canManageEvents === true;
+		router.replace(isEventManager ? "/admin" : "/student");
+	}, [user, router]);
 
-  if (user === undefined) {
-    return (
-      <main className="flex min-h-screen items-center justify-center">
-        <Spinner />
-      </main>
-    );
-  }
+	if (user === undefined) {
+		return (
+			<main className="flex min-h-screen items-center justify-center">
+				<Spinner />
+			</main>
+		);
+	}
 
-  if (user) {
-    return null;
-  }
+	if (user) {
+		return null;
+	}
 
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-background to-secondary/20 p-4">
-      <div className="mb-8 text-center">
-        <h1 className="text-4xl font-bold tracking-tight text-foreground mb-2">
-          Newbury Center Portal
-        </h1>
-        <p className="text-lg text-muted-foreground">
-          Event signups, scheduling, and more soon to come!
-        </p>
-      </div>
-      <GoogleSignIn />
-    </main>
-  );
+	return (
+		<main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-background to-secondary/20 p-4">
+			<div className="mb-8 text-center">
+				<h1 className="text-4xl font-bold tracking-tight text-foreground mb-2">
+					Newbury Center Portal
+				</h1>
+				<p className="text-lg text-muted-foreground">
+					Event signups, scheduling, and more soon to come!
+				</p>
+			</div>
+			<GoogleSignIn />
+		</main>
+	);
 }

@@ -1,65 +1,65 @@
-import { QueryCtx, MutationCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 
 export async function requireAdmin(
-  ctx: QueryCtx | MutationCtx,
+	ctx: QueryCtx | MutationCtx,
 ): Promise<boolean> {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) {
-    throw new Error("No user found");
-  }
+	const userId = await getAuthUserId(ctx);
+	if (!userId) {
+		throw new Error("No user found");
+	}
 
-  const currentUser = await ctx.db.get(userId);
-  if (!currentUser) {
-    throw new Error("User not found");
-  }
+	const currentUser = await ctx.db.get(userId);
+	if (!currentUser) {
+		throw new Error("User not found");
+	}
 
-  const isAdmin = currentUser.role === "ADMIN";
+	const isAdmin = currentUser.role === "ADMIN";
 
-  if (!isAdmin) {
-    throw new Error("Admin access required");
-  }
+	if (!isAdmin) {
+		throw new Error("Admin access required");
+	}
 
-  return true;
+	return true;
 }
 
 // Allow admins OR users with canManageEvents permission
 export async function requireEventManager(
-  ctx: QueryCtx | MutationCtx,
+	ctx: QueryCtx | MutationCtx,
 ): Promise<boolean> {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) {
-    throw new Error("No user found");
-  }
+	const userId = await getAuthUserId(ctx);
+	if (!userId) {
+		throw new Error("No user found");
+	}
 
-  const currentUser = await ctx.db.get(userId);
-  if (!currentUser) {
-    throw new Error("User not found");
-  }
+	const currentUser = await ctx.db.get(userId);
+	if (!currentUser) {
+		throw new Error("User not found");
+	}
 
-  const isAdmin = currentUser.role === "ADMIN";
-  const canManageEvents = currentUser.canManageEvents === true;
+	const isAdmin = currentUser.role === "ADMIN";
+	const canManageEvents = currentUser.canManageEvents === true;
 
-  if (!isAdmin && !canManageEvents) {
-    throw new Error("Event management access required");
-  }
+	if (!isAdmin && !canManageEvents) {
+		throw new Error("Event management access required");
+	}
 
-  return true;
+	return true;
 }
 
 // Check if user is an event manager (without throwing)
 export async function isEventManager(
-  ctx: QueryCtx | MutationCtx,
+	ctx: QueryCtx | MutationCtx,
 ): Promise<boolean> {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) {
-    return false;
-  }
+	const userId = await getAuthUserId(ctx);
+	if (!userId) {
+		return false;
+	}
 
-  const currentUser = await ctx.db.get(userId);
-  if (!currentUser) {
-    return false;
-  }
+	const currentUser = await ctx.db.get(userId);
+	if (!currentUser) {
+		return false;
+	}
 
-  return currentUser.role === "ADMIN" || currentUser.canManageEvents === true;
+	return currentUser.role === "ADMIN" || currentUser.canManageEvents === true;
 }
