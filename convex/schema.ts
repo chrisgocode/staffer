@@ -103,6 +103,18 @@ export default defineSchema({
 		.index("email", ["email"])
 		.index("by_role", ["role"])
 		.index("by_calendar_token", ["calendarToken"]),
+
+	accessGrants: defineTable({
+		email: v.string(),
+		role: v.union(v.literal("ADMIN"), v.literal("STUDENT")),
+		status: v.union(v.literal("ACTIVE"), v.literal("REVOKED")),
+		canManageEvents: v.boolean(),
+		userId: v.optional(v.id("users")),
+	})
+		.index("by_email", ["email"])
+		.index("by_user", ["userId"])
+		.index("by_status_and_role", ["status", "role"]),
+
 	events: defineTable({
 		title: v.string(),
 		description: v.optional(v.string()),

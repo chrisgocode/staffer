@@ -1,7 +1,6 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireEventManager } from "./permissions";
+import { requireActiveUser, requireEventManager } from "./permissions";
 
 const eventSchema = v.object({
 	_id: v.id("events"),
@@ -23,11 +22,7 @@ export const listEvents = query({
 	args: {},
 	returns: v.array(eventSchema),
 	handler: async (ctx) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("No user found");
-		}
-
+		await requireActiveUser(ctx);
 		return await ctx.db.query("events").withIndex("by_start_time").collect();
 	},
 });
@@ -36,11 +31,7 @@ export const listUpcomingEvents = query({
 	args: {},
 	returns: v.array(eventSchema),
 	handler: async (ctx) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("No user found");
-		}
-
+		await requireActiveUser(ctx);
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
 		const todayStr = today.toISOString().split("T")[0];
@@ -63,6 +54,7 @@ export const getEventsByDateRange = query({
 	},
 	returns: v.array(eventSchema),
 	handler: async (ctx, args) => {
+		await requireActiveUser(ctx);
 		return await ctx.db
 			.query("events")
 			.withIndex("by_start_and_end_time")
@@ -90,12 +82,7 @@ export const createEvent = mutation({
 	},
 	returns: v.id("events"),
 	handler: async (ctx, args) => {
-		await requireEventManager(ctx);
-
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("No user found");
-		}
+		const { user } = await requireEventManager(ctx);
 
 		if (args.startTime >= args.endTime) {
 			throw new Error("Event end time must be after start time");
@@ -108,7 +95,7 @@ export const createEvent = mutation({
 			date: args.date,
 			startTime: args.startTime,
 			endTime: args.endTime,
-			createdBy: userId,
+			createdBy: user._id,
 			spotsTotal: args.spotsTotal,
 			spotsAvailable: args.spotsAvailable,
 			updatedAt: Date.now(),

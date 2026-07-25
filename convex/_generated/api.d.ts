@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as access from "../access.js";
+import type * as accessControl from "../accessControl.js";
 import type * as auth from "../auth.js";
 import type * as calendar from "../calendar.js";
 import type * as events from "../events.js";
@@ -26,6 +28,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  access: typeof access;
+  accessControl: typeof accessControl;
   auth: typeof auth;
   calendar: typeof calendar;
   events: typeof events;

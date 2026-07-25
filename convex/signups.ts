@@ -1,8 +1,12 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
-import { isEventManager, requireEventManager } from "./permissions";
+import {
+	isEventManager,
+	requireActiveUser,
+	requireEventManager,
+	requireStudent,
+} from "./permissions";
 
 // Generate a cryptographically secure random token
 function generateSecureToken(): string {
@@ -22,21 +26,8 @@ export const signupForEvent = mutation({
 	},
 	returns: v.id("signups"),
 	handler: async (ctx, args) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("No user found");
-		}
-
-		// Check if user profile exists and is a student
-		const user = await ctx.db.get(userId);
-
-		if (!user) {
-			throw new Error("User profile not found");
-		}
-
-		if (user.role !== "STUDENT") {
-			throw new Error("Only students can sign up for events");
-		}
+		const { user } = await requireStudent(ctx);
+		const userId = user._id;
 
 		// Auto-generate calendar token if user doesn't have one
 		if (!user.calendarToken) {
@@ -95,21 +86,8 @@ export const editSignupEvent = mutation({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("No user found");
-		}
-
-		// Check if user profile exists and is a student
-		const user = await ctx.db.get(userId);
-
-		if (!user) {
-			throw new Error("User profile not found");
-		}
-
-		if (user.role !== "STUDENT") {
-			throw new Error("Only students can edit signups");
-		}
+		const { user } = await requireStudent(ctx);
+		const userId = user._id;
 
 		// Get the signup
 		const signup = await ctx.db.get(args.signupId);
@@ -157,10 +135,8 @@ export const cancelSignup = mutation({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("No user found");
-		}
+		const { user } = await requireStudent(ctx);
+		const userId = user._id;
 
 		// Get the signup
 		const signup = await ctx.db.get(args.signupId);
@@ -213,17 +189,8 @@ export const getEventSignups = query({
 		}),
 	),
 	handler: async (ctx, args) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("No user found");
-		}
-
-		// Check if user is admin or the event creator
-		const user = await ctx.db.get(userId);
-
-		if (!user) {
-			throw new Error("User profile not found");
-		}
+		const { user } = await requireActiveUser(ctx);
+		const userId = user._id;
 
 		const event = await ctx.db.get(args.eventId);
 		if (!event) {
@@ -292,10 +259,8 @@ export const getEventSignupsBatch = query({
 		),
 	),
 	handler: async (ctx, args) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("No user found");
-		}
+		const { user } = await requireActiveUser(ctx);
+		const userId = user._id;
 
 		const result: Record<
 			Id<"events">,
@@ -394,10 +359,7 @@ export const getPublicEventSignups = query({
 		}),
 	),
 	handler: async (ctx, args) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("No user found");
-		}
+		await requireActiveUser(ctx);
 
 		// Return minimal, non-sensitive signup details for roster display
 		const signups = await ctx.db
@@ -460,10 +422,7 @@ export const getPublicEventSignupsBatch = query({
 		),
 	),
 	handler: async (ctx, args) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("No user found");
-		}
+		await requireActiveUser(ctx);
 
 		const result: Record<
 			Id<"events">,
@@ -555,10 +514,8 @@ export const getUserSignups = query({
 		}),
 	),
 	handler: async (ctx) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("No user found");
-		}
+		const { user } = await requireActiveUser(ctx);
+		const userId = user._id;
 
 		// Get all signups for the user
 		const signups = await ctx.db
@@ -635,10 +592,8 @@ export const isSignedUpForEvent = query({
 		v.null(),
 	),
 	handler: async (ctx, args) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("No user found");
-		}
+		const { user } = await requireActiveUser(ctx);
+		const userId = user._id;
 
 		// Check if user has signed up for this event
 		const signup = await ctx.db
@@ -660,11 +615,6 @@ export const confirmSignup = mutation({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("No user found");
-		}
-
 		await requireEventManager(ctx);
 
 		// Check if signup exists

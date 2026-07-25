@@ -2,7 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
-import { requireAdmin } from "./permissions";
+import { getUserAccess, requireActiveUser } from "./permissions";
 
 export const getCurrentUser = query({
 	args: {},
@@ -19,8 +19,9 @@ export const getCurrentUser = query({
 			imageUrl: v.optional(v.string()),
 			emailVerificationTime: v.optional(v.number()),
 			phoneVerificationTime: v.optional(v.number()),
+			accessStatus: v.union(v.literal("ACTIVE"), v.literal("REVOKED")),
 			role: v.optional(v.union(v.literal("ADMIN"), v.literal("STUDENT"))),
-			canManageEvents: v.optional(v.boolean()),
+			canManageEvents: v.boolean(),
 			calendarToken: v.optional(v.string()),
 			scheduleFileId: v.optional(v.id("_storage")),
 			scheduleFilename: v.optional(v.string()),
@@ -121,93 +122,14 @@ export const getCurrentUser = query({
 			imageUrl = user.image;
 		}
 
+		const access = await getUserAccess(ctx, user);
 		return {
 			...user,
 			imageUrl,
+			accessStatus: access?.status ?? "REVOKED",
+			role: access?.role,
+			canManageEvents: access?.canManageEvents ?? false,
 		};
-	},
-});
-
-// Get all users (Admin only)
-export const getAllUsers = query({
-	args: {},
-	returns: v.array(
-		v.object({
-			_id: v.id("users"),
-			_creationTime: v.number(),
-			name: v.optional(v.string()),
-			email: v.optional(v.string()),
-			role: v.optional(v.union(v.literal("ADMIN"), v.literal("STUDENT"))),
-		}),
-	),
-	handler: async (ctx) => {
-		await requireAdmin(ctx);
-
-		const users = await ctx.db.query("users").collect();
-
-		return users.map((user) => ({
-			_id: user._id,
-			_creationTime: user._creationTime,
-			name: user.name,
-			email: user.email,
-			role: user.role,
-		}));
-	},
-});
-
-// Update user role (Admin only)
-export const updateUserRole = mutation({
-	args: {
-		userId: v.id("users"),
-		role: v.union(v.literal("ADMIN"), v.literal("STUDENT")),
-	},
-	returns: v.null(),
-	handler: async (ctx, args) => {
-		await requireAdmin(ctx);
-
-		// Check if the profile to update exists
-		const userToUpdate = await ctx.db.get(args.userId);
-		if (!userToUpdate) {
-			throw new Error("User not found");
-		}
-
-		await ctx.db.patch(args.userId, {
-			role: args.role,
-		});
-
-		return null;
-	},
-});
-
-// Get users by role
-export const getUsersByRole = query({
-	args: {
-		role: v.union(v.literal("ADMIN"), v.literal("STUDENT")),
-	},
-	returns: v.array(
-		v.object({
-			_id: v.id("users"),
-			_creationTime: v.number(),
-			name: v.optional(v.string()),
-			email: v.optional(v.string()),
-			role: v.optional(v.union(v.literal("ADMIN"), v.literal("STUDENT"))),
-		}),
-	),
-	handler: async (ctx, args) => {
-		await requireAdmin(ctx);
-
-		const users = await ctx.db
-			.query("users")
-			.withIndex("by_role", (q) => q.eq("role", args.role))
-			.collect();
-
-		return users.map((user) => ({
-			_id: user._id,
-			_creationTime: user._creationTime,
-			name: user.name,
-			email: user.email,
-			role: user.role,
-		}));
 	},
 });
 
@@ -215,6 +137,7 @@ export const generateUploadUrl = mutation({
 	args: {},
 	returns: v.string(),
 	handler: async (ctx) => {
+		await requireActiveUser(ctx);
 		return await ctx.storage.generateUploadUrl();
 	},
 });
@@ -223,10 +146,8 @@ export const updateUserAvatar = mutation({
 	args: { storageId: v.id("_storage") },
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("User not found");
-		}
+		const { user: activeUser } = await requireActiveUser(ctx);
+		const userId = activeUser._id;
 
 		await ctx.db.patch(userId, {
 			imageId: args.storageId,
@@ -240,10 +161,8 @@ export const deleteUserAvatar = mutation({
 	args: {},
 	returns: v.null(),
 	handler: async (ctx) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("User not found");
-		}
+		const { user: activeUser } = await requireActiveUser(ctx);
+		const userId = activeUser._id;
 
 		await ctx.db.patch(userId, {
 			imageId: undefined,
@@ -259,10 +178,8 @@ export const updateUserName = mutation({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("User not found");
-		}
+		const { user: activeUser } = await requireActiveUser(ctx);
+		const userId = activeUser._id;
 
 		await ctx.db.patch(userId, {
 			name: args.name,
@@ -279,15 +196,8 @@ export const uploadSchedule = mutation({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("User not found");
-		}
-
-		const user = await ctx.db.get(userId);
-		if (!user) {
-			throw new Error("User not found");
-		}
+		const { user } = await requireActiveUser(ctx);
+		const userId = user._id;
 
 		// Clear old parsed schedule data since it's stale
 		await ctx.db.patch(userId, {
@@ -310,15 +220,8 @@ export const deleteSchedule = mutation({
 	args: {},
 	returns: v.null(),
 	handler: async (ctx) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("User not found");
-		}
-
-		const user = await ctx.db.get(userId);
-		if (!user) {
-			throw new Error("User not found");
-		}
+		const { user } = await requireActiveUser(ctx);
+		const userId = user._id;
 
 		// Delete the schedule file from storage
 		if (user.scheduleFileId) {
@@ -339,13 +242,8 @@ export const getScheduleUrl = query({
 	args: {},
 	returns: v.union(v.null(), v.string()),
 	handler: async (ctx) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			return null;
-		}
-
-		const user = await ctx.db.get(userId);
-		if (!user || !user.scheduleFileId) {
+		const { user } = await requireActiveUser(ctx);
+		if (!user.scheduleFileId) {
 			return null;
 		}
 
@@ -360,15 +258,8 @@ export const updateCalendarPreferences = mutation({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("User not found");
-		}
-
-		const user = await ctx.db.get(userId);
-		if (!user) {
-			throw new Error("User not found");
-		}
+		const { user } = await requireActiveUser(ctx);
+		const userId = user._id;
 
 		// Get existing preferences or create new structure
 		const currentPreferences = user.preferences ?? {};
@@ -452,15 +343,8 @@ export const updateSchedulePreferences = mutation({
 	},
 	returns: v.null(),
 	handler: async (ctx, args) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("User not found");
-		}
-
-		const user = await ctx.db.get(userId);
-		if (!user) {
-			throw new Error("User not found");
-		}
+		const { user } = await requireActiveUser(ctx);
+		const userId = user._id;
 
 		// Get existing preferences or create new structure
 		const currentPreferences = user.preferences ?? {};
@@ -475,62 +359,6 @@ export const updateSchedulePreferences = mutation({
 					[args.semester]: args.preferences,
 				},
 			},
-		});
-
-		return null;
-	},
-});
-
-// List all students with their event manager status (Admin only)
-export const listStudentsWithEventManagerFlag = query({
-	args: {},
-	returns: v.array(
-		v.object({
-			_id: v.id("users"),
-			name: v.optional(v.string()),
-			email: v.optional(v.string()),
-			canManageEvents: v.optional(v.boolean()),
-		}),
-	),
-	handler: async (ctx) => {
-		await requireAdmin(ctx);
-
-		const students = await ctx.db
-			.query("users")
-			.withIndex("by_role", (q) => q.eq("role", "STUDENT"))
-			.collect();
-
-		return students.map((user) => ({
-			_id: user._id,
-			name: user.name,
-			email: user.email,
-			canManageEvents: user.canManageEvents,
-		}));
-	},
-});
-
-// Set the canManageEvents flag for a user (Admin only)
-export const setUserCanManageEvents = mutation({
-	args: {
-		userId: v.id("users"),
-		canManageEvents: v.boolean(),
-	},
-	returns: v.null(),
-	handler: async (ctx, args) => {
-		await requireAdmin(ctx);
-
-		const userToUpdate = await ctx.db.get(args.userId);
-		if (!userToUpdate) {
-			throw new Error("User not found");
-		}
-
-		// Only allow setting this flag for students
-		if (userToUpdate.role !== "STUDENT") {
-			throw new Error("Can only grant event management access to students");
-		}
-
-		await ctx.db.patch(args.userId, {
-			canManageEvents: args.canManageEvents,
 		});
 
 		return null;
