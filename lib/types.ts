@@ -1,97 +1,97 @@
-import { Id } from "@/convex/_generated/dataModel";
+import type { Id } from "@/convex/_generated/dataModel";
 
 export type UserRole = "STUDENT" | "ADMIN";
 
 export interface User {
-  _id: Id<"users">;
-  email: string;
-  name: string;
-  role: UserRole;
-  avatar?: string;
+	_id: Id<"users">;
+	email: string;
+	name: string;
+	role: UserRole;
+	avatar?: string;
 }
 
 export interface Event {
-  _id: Id<"events">;
-  title: string;
-  description?: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  location: string;
-  spotsAvailable: number;
-  spotsTotal: number;
-  createdBy: Id<"users">;
+	_id: Id<"events">;
+	title: string;
+	description?: string;
+	date: string;
+	startTime: string;
+	endTime: string;
+	location: string;
+	spotsAvailable: number;
+	spotsTotal: number;
+	createdBy: Id<"users">;
 }
 
 export interface EventSignup {
-  _id: Id<"signups">;
-  eventId: Id<"events">;
-  studentId: Id<"users">;
-  studentName: string;
-  studentEmail: string;
-  studentImageUrl?: string;
-  status: "PENDING" | "SCHEDULED";
-  timeslots: Array<{
-    startTime: string;
-    endTime: string;
-  }>;
+	_id: Id<"signups">;
+	eventId: Id<"events">;
+	studentId: Id<"users">;
+	studentName: string;
+	studentEmail: string;
+	studentImageUrl?: string;
+	status: "PENDING" | "SCHEDULED";
+	timeslots: Array<{
+		startTime: string;
+		endTime: string;
+	}>;
 }
 
 export interface Shift {
-  _id: Id<"staffShifts">;
-  userId: Id<"users">;
-  userName: string;
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-  color: string;
-  zIndex: number;
+	_id: Id<"staffShifts">;
+	userId: Id<"users">;
+	userName: string;
+	dayOfWeek: number;
+	startTime: string;
+	endTime: string;
+	color: string;
+	zIndex: number;
 }
 
 export interface ClassSchedule {
-  days: string;
-  startTime: string;
-  endTime: string;
-  dates: string;
+	days: string;
+	startTime: string;
+	endTime: string;
+	dates: string;
 }
 
 interface SchedulePreferences {
-  monday: {
-    isFullDayOff: boolean;
-    timeBlocks: Array<{ start: string; end: string }>;
-  };
-  tuesday: {
-    isFullDayOff: boolean;
-    timeBlocks: Array<{ start: string; end: string }>;
-  };
-  wednesday: {
-    isFullDayOff: boolean;
-    timeBlocks: Array<{ start: string; end: string }>;
-  };
-  thursday: {
-    isFullDayOff: boolean;
-    timeBlocks: Array<{ start: string; end: string }>;
-  };
-  friday: {
-    isFullDayOff: boolean;
-    timeBlocks: Array<{ start: string; end: string }>;
-  };
+	monday: {
+		isFullDayOff: boolean;
+		timeBlocks: Array<{ start: string; end: string }>;
+	};
+	tuesday: {
+		isFullDayOff: boolean;
+		timeBlocks: Array<{ start: string; end: string }>;
+	};
+	wednesday: {
+		isFullDayOff: boolean;
+		timeBlocks: Array<{ start: string; end: string }>;
+	};
+	thursday: {
+		isFullDayOff: boolean;
+		timeBlocks: Array<{ start: string; end: string }>;
+	};
+	friday: {
+		isFullDayOff: boolean;
+		timeBlocks: Array<{ start: string; end: string }>;
+	};
 }
 
 export interface StaffMember {
-  _id: Id<"users">;
-  name: string;
-  email: string;
-  color: string;
-  classSchedule?: ClassSchedule[];
-  preferences?: {
-    schedule?: Record<string, SchedulePreferences>;
-  };
+	_id: Id<"users">;
+	name: string;
+	email: string;
+	color: string;
+	classSchedule?: ClassSchedule[];
+	preferences?: {
+		schedule?: Record<string, SchedulePreferences>;
+	};
 }
 
 export interface DropPreview {
-  day: number;
-  startTime: string;
-  endTime: string;
-  color: string;
+	day: number;
+	startTime: string;
+	endTime: string;
+	color: string;
 }
