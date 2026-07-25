@@ -27,6 +27,7 @@ import {
 import AvatarUpload from "@/components/ui/avatar-upload";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -71,6 +72,7 @@ export default function Settings() {
 	const [editedName, setEditedName] = useState<string | null>(null);
 	const [email, setEmail] = useState("");
 	const [role, setRole] = useState<"ADMIN" | "STUDENT">("STUDENT");
+	const [showRevokedUsers, setShowRevokedUsers] = useState(false);
 	const [isSavingAccess, setIsSavingAccess] = useState(false);
 	const [pendingAction, setPendingAction] = useState<PendingAction | null>(
 		null,
@@ -80,6 +82,11 @@ export default function Settings() {
 		new Set<Id<"users">>(),
 	);
 	const isLoading = user === undefined;
+	const revokedCount =
+		grants?.filter((grant) => grant.status === "REVOKED").length ?? 0;
+	const visibleGrants = (grants ?? []).filter(
+		(grant) => showRevokedUsers || grant.status !== "REVOKED",
+	);
 
 	useEffect(() => {
 		if (!isLoading && (!user || user.role !== "ADMIN")) router.push("/");
@@ -325,8 +332,26 @@ export default function Settings() {
 									</Button>
 								</div>
 							) : (
-								<div className="divide-y rounded-lg border">
-									{grants.map((grant) => {
+								<div className="space-y-3">
+									{revokedCount > 0 && (
+										<div className="flex justify-end">
+											<label
+												htmlFor="show-revoked-users"
+												className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground"
+											>
+												<Checkbox
+													id="show-revoked-users"
+													checked={showRevokedUsers}
+													onCheckedChange={(checked) =>
+														setShowRevokedUsers(checked === true)
+													}
+												/>
+												Show revoked users ({revokedCount})
+											</label>
+										</div>
+									)}
+									<div className="divide-y rounded-lg border">
+										{visibleGrants.map((grant) => {
 										const isPending =
 											grant.status === "ACTIVE" && !grant.hasSignedIn;
 										const statusLabel =
@@ -431,7 +456,8 @@ export default function Settings() {
 												)}
 											</div>
 										);
-									})}
+										})}
+									</div>
 								</div>
 							)}
 						</CardContent>
