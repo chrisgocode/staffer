@@ -527,6 +527,7 @@ export default function Settings() {
 									return (
 										<button
 											key={key}
+											type="button"
 											onClick={() => setSelectedDay(isSelected ? null : key)}
 											className={`p-4 rounded-lg border-2 transition-all text-left ${
 												isSelected

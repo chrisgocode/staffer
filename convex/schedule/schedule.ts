@@ -1,7 +1,10 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "../_generated/server";
-import { requireAdmin } from "../permissions";
+import {
+	getUserAccess,
+	requireActiveUser,
+	requireAdmin,
+} from "../permissions";
 import { doesShiftConflict, getAllBlockedRanges } from "./conflictUtils";
 
 export const storeClassSchedule = internalMutation({
@@ -50,15 +53,7 @@ export const getScheduleForSemester = query({
 		v.null(),
 	),
 	handler: async (ctx, args) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("No user found");
-		}
-
-		const user = await ctx.db.get(userId);
-		if (!user) {
-			throw new Error("User not found");
-		}
+		await requireActiveUser(ctx);
 
 		// Find active schedule for semester
 		const schedule = await ctx.db
@@ -185,24 +180,26 @@ export const getStaffMembers = query({
 		}),
 	),
 	handler: async (ctx) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("No user found");
-		}
-
 		await requireAdmin(ctx);
 
-		const staff = await ctx.db
-			.query("users")
-			.withIndex("by_role", (q) => q.eq("role", "STUDENT"))
+		const grants = await ctx.db
+			.query("accessGrants")
+			.withIndex("by_status_and_role", (q) =>
+				q.eq("status", "ACTIVE").eq("role", "STUDENT"),
+			)
 			.collect();
+		const staff = await Promise.all(
+			grants.map((grant) =>
+				grant.userId ? ctx.db.get(grant.userId) : Promise.resolve(null),
+			),
+		);
 
-		return staff.map((s) => ({
-			_id: s._id,
-			name: s.name,
-			email: s.email,
-			classSchedule: s.classSchedule,
-			preferences: s.preferences,
+		return staff.filter((user) => user !== null).map((user) => ({
+			_id: user._id,
+			name: user.name,
+			email: user.email,
+			classSchedule: user.classSchedule,
+			preferences: user.preferences,
 		}));
 	},
 });
@@ -230,6 +227,10 @@ export const addShift = mutation({
 		const user = await ctx.db.get(args.userId);
 		if (!user) {
 			throw new Error(`User not found: ${args.userId}`);
+		}
+		const access = await getUserAccess(ctx, user);
+		if (access?.status !== "ACTIVE" || access.role !== "STUDENT") {
+			throw new Error("Shifts can only be assigned to active students");
 		}
 
 		// Validate shift against user's class schedule only - preferences are informational only
@@ -292,6 +293,10 @@ export const updateShift = mutation({
 		if (!user) {
 			throw new Error(`User not found: ${existingShift.userId}`);
 		}
+		const access = await getUserAccess(ctx, user);
+		if (access?.status !== "ACTIVE" || access.role !== "STUDENT") {
+			throw new Error("Shifts can only be assigned to active students");
+		}
 
 		// Validate against class schedule only - preferences are informational only
 		const blockedRanges = getAllBlockedRanges(
@@ -341,12 +346,8 @@ export const publishSchedule = mutation({
 	},
 	returns: v.id("staffSchedules"),
 	handler: async (ctx, args) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("Not authenticated");
-		}
-
-		await requireAdmin(ctx);
+		const { user: admin } = await requireAdmin(ctx);
+		const userId = admin._id;
 
 		// Weekday names for error messages
 		const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
@@ -369,6 +370,10 @@ export const publishSchedule = mutation({
 			const user = await ctx.db.get(shift.userId);
 			if (!user) {
 				throw new Error(`User not found: ${shift.userId}`);
+			}
+			const access = await getUserAccess(ctx, user);
+			if (access?.status !== "ACTIVE" || access.role !== "STUDENT") {
+				throw new Error("Shifts can only be assigned to active students");
 			}
 
 			// Validate against class schedule only - preferences are informational only

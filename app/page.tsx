@@ -14,6 +14,10 @@ export default function HomePage() {
 	useEffect(() => {
 		if (user === undefined) return; // loading state
 		if (!user) return; // unauthenticated, show sign-in
+		if (user.accessStatus !== "ACTIVE") {
+			router.replace("/unauthorized");
+			return;
+		}
 		// Send admins and event managers to admin dashboard, students to student dashboard
 		const isEventManager =
 			user.role === "ADMIN" || user.canManageEvents === true;

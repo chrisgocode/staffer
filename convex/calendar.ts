@@ -1,4 +1,3 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -7,6 +6,7 @@ import {
 	mutation,
 	query,
 } from "./_generated/server";
+import { getUserAccess, requireStudent } from "./permissions";
 
 // Generate a cryptographically secure random token
 function generateSecureToken(): string {
@@ -27,20 +27,8 @@ export const generateCalendarToken = mutation({
 		v.null(),
 	),
 	handler: async (ctx) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			return null;
-		}
-
-		// Check if user exists and is a student
-		const user = await ctx.db.get(userId);
-		if (!user) {
-			throw new Error("User profile not found");
-		}
-
-		if (user.role !== "STUDENT") {
-			throw new Error("Only students can have calendar tokens");
-		}
+		const { user } = await requireStudent(ctx);
+		const userId = user._id;
 
 		// Generate new token
 		const token = generateSecureToken();
@@ -65,14 +53,9 @@ export const getMyCalendarUrl = query({
 		v.null(),
 	),
 	handler: async (ctx) => {
-		const userId = await getAuthUserId(ctx);
-		if (!userId) {
-			throw new Error("No user found");
-		}
+		const { user } = await requireStudent(ctx);
 
-		const user = await ctx.db.get(userId);
-
-		if (!user || !user.calendarToken) {
+		if (!user.calendarToken) {
 			return null;
 		}
 
@@ -133,6 +116,10 @@ export const getScheduledEventsForToken = internalQuery({
 		// return empty array if user not found (token invalid/regenerated)
 		// this prevents errors when calendar clients use stale tokens
 		if (!user) {
+			return [];
+		}
+		const access = await getUserAccess(ctx, user);
+		if (access?.status !== "ACTIVE" || access.role !== "STUDENT") {
 			return [];
 		}
 

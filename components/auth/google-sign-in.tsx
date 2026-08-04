@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuthActions } from "@convex-dev/auth/react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -13,6 +14,15 @@ import {
 export function GoogleSignIn() {
 	const { signIn } = useAuthActions();
 
+	const handleSignIn = async () => {
+		try {
+			await signIn("google");
+		} catch (error) {
+			console.error(error);
+			toast.error("Access has not been granted for this account");
+		}
+	};
+
 	return (
 		<Card className="w-full max-w-md">
 			<CardHeader className="space-y-1">
@@ -22,7 +32,7 @@ export function GoogleSignIn() {
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<Button onClick={() => void signIn("google")} className="w-full">
+				<Button onClick={handleSignIn} className="w-full">
 					Sign in with Google
 				</Button>
 			</CardContent>

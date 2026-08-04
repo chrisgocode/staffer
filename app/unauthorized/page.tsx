@@ -21,14 +21,14 @@ export default function Unauthorized() {
 				<div className="space-y-4 text-gray-600 mb-8">
 					<div className="flex items-center justify-center space-x-2">
 						<Shield className="h-5 w-5" />
-						<span>Your email must be whitelisted</span>
+						<span>Your account does not have active access</span>
 					</div>
 				</div>
 
 				<div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
 					<p className="text-sm text-blue-800">
-						<strong>Think this is a mistake?</strong> Contact NC Pro Staff to
-						have your @bu.edu email added to the whitelist.
+						<strong>Think this is a mistake?</strong> Contact Newbury Center
+						staff to have your access granted or restored.
 					</p>
 				</div>
 

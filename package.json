@@ -2,6 +2,7 @@
   "name": "nc-events",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "bun@1.2.18",
   "scripts": {
     "dev": "npm-run-all --parallel dev:frontend dev:backend",
     "dev:frontend": "next dev --turbopack",
@@ -9,7 +10,8 @@
     "predev": "convex dev --until-success && convex dev --once --run-sh \"node setup.mjs --once\" && convex dashboard",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "bun test tests"
   },
   "dependencies": {
     "@auth/core": "0.41.1",
@@ -51,6 +53,7 @@
     "date-fns": "4.1.0",
     "dotenv": "^17.2.3",
     "embla-carousel-react": "8.5.1",
+    "fuse.js": "^7.5.0",
     "input-otp": "1.4.1",
     "jotai": "^2.15.0",
     "lucide-react": "^0.552.0",
