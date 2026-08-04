@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { type MutationCtx, mutation, query } from "./_generated/server";
 import { grantsFromEnvironment, normalizeEmail } from "./accessControl";
@@ -21,7 +21,7 @@ async function assertNotLastAdmin(
 		)
 		.collect();
 	if (!admins.some((admin) => admin.userId && admin._id !== grant._id)) {
-		throw new Error("The final active administrator cannot be removed");
+		throw new ConvexError("The final active administrator cannot be removed");
 	}
 }
 
@@ -66,7 +66,7 @@ export const grantAccess = mutation({
 	handler: async (ctx, args) => {
 		await requireAdmin(ctx);
 		const email = normalizeEmail(args.email);
-		if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error("Enter a valid email");
+		if (!/^\S+@\S+\.\S+$/.test(email)) throw new ConvexError("Enter a valid email");
 
 		const grant = await ctx.db
 			.query("accessGrants")
@@ -87,7 +87,7 @@ export const grantAccess = mutation({
 					.unique()
 			: null;
 		if (userGrant && userGrant._id !== grant?._id) {
-			throw new Error("This user is already linked to another access grant");
+			throw new ConvexError("This user is already linked to another access grant");
 		}
 		const canManageEvents =
 			args.role === "STUDENT" && grant?.status === "ACTIVE"
@@ -126,7 +126,7 @@ export const revokeAccess = mutation({
 			.query("accessGrants")
 			.withIndex("by_email", (q) => q.eq("email", normalizeEmail(args.email)))
 			.unique();
-		if (!grant) throw new Error("Access grant not found");
+		if (!grant) throw new ConvexError("Access grant not found");
 
 		await assertNotLastAdmin(ctx, grant);
 		await ctx.db.patch(grant._id, {
@@ -150,7 +150,7 @@ export const setCanManageEvents = mutation({
 			.withIndex("by_user", (q) => q.eq("userId", args.userId))
 			.unique();
 		if (!grant || grant.status !== "ACTIVE" || grant.role !== "STUDENT") {
-			throw new Error(
+			throw new ConvexError(
 				"Event management can only be changed for active students",
 			);
 		}
@@ -176,7 +176,7 @@ export const migrateFromEnvironment = mutation({
 			process.env.STUDENT_EMAILS,
 		);
 		if (![...desiredGrants.values()].includes("ADMIN")) {
-			throw new Error("ADMIN_EMAILS must contain at least one email");
+			throw new ConvexError("ADMIN_EMAILS must contain at least one email");
 		}
 
 		const users = await ctx.db.query("users").collect();
@@ -184,7 +184,7 @@ export const migrateFromEnvironment = mutation({
 		for (const user of users) {
 			const email = normalizeEmail(user.email);
 			if (usersByEmail.has(email)) {
-				throw new Error(`Multiple users have the email ${email}`);
+				throw new ConvexError(`Multiple users have the email ${email}`);
 			}
 			usersByEmail.set(email, user);
 		}
@@ -194,7 +194,7 @@ export const migrateFromEnvironment = mutation({
 		for (const grant of existingGrants) {
 			const email = normalizeEmail(grant.email);
 			if (grantsByEmail.has(email)) {
-				throw new Error(`Multiple access grants have the email ${email}`);
+				throw new ConvexError(`Multiple access grants have the email ${email}`);
 			}
 			grantsByEmail.set(email, grant);
 		}
@@ -211,7 +211,7 @@ export const migrateFromEnvironment = mutation({
 
 			if (grant) {
 				if (grant.userId && user && grant.userId !== user._id) {
-					throw new Error(`${email} is linked to a different user`);
+					throw new ConvexError(`${email} is linked to a different user`);
 				}
 				await ctx.db.patch(grant._id, {
 					email,
@@ -250,7 +250,7 @@ export const migrateFromEnvironment = mutation({
 			([email, role]) => role === "ADMIN" && usersByEmail.has(email),
 		);
 		if (!linkedAdminExists) {
-			throw new Error("At least one ADMIN_EMAILS user must have signed in");
+			throw new ConvexError("At least one ADMIN_EMAILS user must have signed in");
 		}
 
 		return {

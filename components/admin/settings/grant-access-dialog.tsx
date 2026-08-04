@@ -25,6 +25,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { api } from "@/convex/_generated/api";
+import { getConvexErrorMessage } from "@/lib/convex-error";
 
 export function GrantAccessDialog({ disabled = false }: { disabled?: boolean }) {
 	const grantAccess = useMutation(api.access.grantAccess);
@@ -53,9 +54,7 @@ export function GrantAccessDialog({ disabled = false }: { disabled?: boolean }) 
 			setOpen(false);
 		} catch (error) {
 			console.error(error);
-			toast.error(
-				error instanceof Error ? error.message : "Could not grant access",
-			);
+			toast.error(getConvexErrorMessage(error, "Could not grant access"));
 		} finally {
 			setIsSaving(false);
 		}

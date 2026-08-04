@@ -42,6 +42,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { getConvexErrorMessage } from "@/lib/convex-error";
 
 type PendingAction =
 	| { type: "role"; email: string; role: "ADMIN" | "STUDENT" }
@@ -138,7 +139,7 @@ export default function Settings() {
 			toast.success(successMessage);
 		} catch (error) {
 			console.error(error);
-			toast.error(error instanceof Error ? error.message : fallbackError);
+			toast.error(getConvexErrorMessage(error, fallbackError));
 		}
 	};
 
@@ -172,9 +173,7 @@ export default function Settings() {
 			toast.success("Access revoked");
 		} catch (error) {
 			console.error(error);
-			toast.error(
-				error instanceof Error ? error.message : "Could not revoke access",
-			);
+			toast.error(getConvexErrorMessage(error, "Could not revoke access"));
 		}
 	};
 
@@ -197,9 +196,7 @@ export default function Settings() {
 			);
 		} catch (error) {
 			console.error(error);
-			toast.error(
-				error instanceof Error ? error.message : "Could not import whitelist",
-			);
+			toast.error(getConvexErrorMessage(error, "Could not import whitelist"));
 		}
 	};
 
