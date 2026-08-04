@@ -38,6 +38,11 @@ export function StudentHeader() {
 		router.push("/student/settings");
 	};
 
+	const handleSignOut = async () => {
+		await signOut();
+		window.location.replace("/");
+	};
+
 	const isEventManager = user.role === "ADMIN" || user.canManageEvents === true;
 
 	return (
@@ -107,7 +112,7 @@ export function StudentHeader() {
 									<Settings className="mr-2 h-4 w-4" />
 									Settings
 								</DropdownMenuItem>
-								<DropdownMenuItem onClick={signOut}>
+								<DropdownMenuItem onClick={handleSignOut}>
 									<LogOut className="mr-2 h-4 w-4" />
 									Sign Out
 								</DropdownMenuItem>
