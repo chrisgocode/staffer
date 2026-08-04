@@ -278,7 +278,7 @@ export default function Settings() {
 										takes effect immediately.
 									</p>
 								</div>
-								<GrantAccessDialog disabled={!grants?.length} />
+								<GrantAccessDialog disabled={grants === undefined} />
 							</div>
 						</CardHeader>
 						<CardContent className="space-y-6">
