@@ -393,9 +393,10 @@ export default function Settings() {
 																</SelectItem>
 															</SelectContent>
 														</Select>
-														<label className="flex items-center gap-2 text-sm text-muted-foreground">
-															<input
-																type="checkbox"
+														<div className="flex items-center gap-2 text-sm text-muted-foreground">
+															<Checkbox
+																id={`manage-events-${grant._id}`}
+																aria-label={`Manage events for ${grant.name || grant.email}`}
 																checked={grant.canManageEvents}
 																disabled={
 																	grant.role !== "STUDENT" ||
@@ -403,16 +404,18 @@ export default function Settings() {
 																	!grant.userId ||
 																	pendingEventManagerIds.has(grant.userId)
 																}
-																onChange={(event) =>
+																onCheckedChange={(checked) =>
 																	grant.userId &&
 																	void handleEventManagerChange(
 																		grant.userId,
-																		event.target.checked,
+																		checked === true,
 																	)
 																}
 															/>
-															Manage events
-														</label>
+															<label htmlFor={`manage-events-${grant._id}`}>
+																Manage events
+															</label>
+														</div>
 														{grant.status === "REVOKED" ? (
 															<Button
 																variant="outline"
