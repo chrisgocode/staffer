@@ -7,13 +7,15 @@ import {
 	Check,
 	Pen,
 	RotateCcw,
+	Search,
 	ShieldCheck,
-	UserPlus,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AdminHeader } from "@/components/admin/admin-header";
+import { createAccessGrantSearch } from "@/components/admin/settings/access-grant-search";
+import { GrantAccessDialog } from "@/components/admin/settings/grant-access-dialog";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -70,10 +72,8 @@ export default function Settings() {
 	const router = useRouter();
 	const [isEditingName, setIsEditingName] = useState(false);
 	const [editedName, setEditedName] = useState<string | null>(null);
-	const [email, setEmail] = useState("");
-	const [role, setRole] = useState<"ADMIN" | "STUDENT">("STUDENT");
+	const [accessQuery, setAccessQuery] = useState("");
 	const [showRevokedUsers, setShowRevokedUsers] = useState(false);
-	const [isSavingAccess, setIsSavingAccess] = useState(false);
 	const [pendingAction, setPendingAction] = useState<PendingAction | null>(
 		null,
 	);
@@ -84,9 +84,23 @@ export default function Settings() {
 	const isLoading = user === undefined;
 	const revokedCount =
 		grants?.filter((grant) => grant.status === "REVOKED").length ?? 0;
-	const visibleGrants = (grants ?? []).filter(
-		(grant) => showRevokedUsers || grant.status !== "REVOKED",
+	const visibleGrants = useMemo(
+		() =>
+			(grants ?? []).filter(
+				(grant) => showRevokedUsers || grant.status !== "REVOKED",
+			),
+		[grants, showRevokedUsers],
 	);
+	const accessGrantSearch = useMemo(
+		() => createAccessGrantSearch(visibleGrants),
+		[visibleGrants],
+	);
+	const matchingGrants = useMemo(() => {
+		const query = accessQuery.trim();
+		return query
+			? accessGrantSearch.search(query).map(({ item }) => item)
+			: visibleGrants;
+	}, [accessGrantSearch, accessQuery, visibleGrants]);
 
 	useEffect(() => {
 		if (!isLoading && (!user || user.role !== "ADMIN")) router.push("/");
@@ -106,23 +120,6 @@ export default function Settings() {
 		} catch (error) {
 			console.error(error);
 			toast.error("Could not update your name");
-		}
-	};
-
-	const handleGrant = async (event: React.FormEvent) => {
-		event.preventDefault();
-		setIsSavingAccess(true);
-		try {
-			await grantAccess({ email, role });
-			setEmail("");
-			toast.success("Access granted");
-		} catch (error) {
-			console.error(error);
-			toast.error(
-				error instanceof Error ? error.message : "Could not grant access",
-			);
-		} finally {
-			setIsSavingAccess(false);
 		}
 	};
 
@@ -270,54 +267,21 @@ export default function Settings() {
 
 					<Card>
 						<CardHeader>
-							<CardTitle className="flex items-center gap-2">
-								<ShieldCheck className="h-5 w-5" />
-								People &amp; Access
-							</CardTitle>
-							<p className="text-sm text-muted-foreground">
-								Approve an email before the person signs in. Revoking access
-								takes effect immediately.
-							</p>
+							<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+								<div className="space-y-1.5">
+									<CardTitle className="flex items-center gap-2">
+										<ShieldCheck className="h-5 w-5" />
+										People &amp; Access
+									</CardTitle>
+									<p className="text-sm text-muted-foreground">
+										Approve an email before the person signs in. Revoking access
+										takes effect immediately.
+									</p>
+								</div>
+								<GrantAccessDialog disabled={!grants?.length} />
+							</div>
 						</CardHeader>
 						<CardContent className="space-y-6">
-							<form
-								onSubmit={handleGrant}
-								className="grid gap-3 rounded-lg border bg-muted/20 p-4 sm:grid-cols-[1fr_9rem_auto] sm:items-end"
-							>
-								<div className="space-y-2">
-									<Label htmlFor="access-email">Email address</Label>
-									<Input
-										id="access-email"
-										type="email"
-										placeholder="person@bu.edu"
-										value={email}
-										onChange={(event) => setEmail(event.target.value)}
-										required
-									/>
-								</div>
-								<div className="space-y-2">
-									<Label htmlFor="access-role">Role</Label>
-									<Select
-										value={role}
-										onValueChange={(value) =>
-											setRole(value as "ADMIN" | "STUDENT")
-										}
-									>
-										<SelectTrigger id="access-role" className="w-full">
-											<SelectValue />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="STUDENT">Student</SelectItem>
-											<SelectItem value="ADMIN">Administrator</SelectItem>
-										</SelectContent>
-									</Select>
-								</div>
-								<Button type="submit" disabled={isSavingAccess}>
-									<UserPlus className="mr-2 h-4 w-4" />
-									Grant access
-								</Button>
-							</form>
-
 							{grants === undefined ? (
 								<div className="flex justify-center py-8">
 									<Spinner />
@@ -333,131 +297,163 @@ export default function Settings() {
 								</div>
 							) : (
 								<div className="space-y-3">
-									{revokedCount > 0 && (
-										<div className="flex justify-end">
-											<label
-												htmlFor="show-revoked-users"
-												className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground"
-											>
-												<Checkbox
-													id="show-revoked-users"
-													checked={showRevokedUsers}
-													onCheckedChange={(checked) =>
-														setShowRevokedUsers(checked === true)
-													}
-												/>
-												Show revoked users ({revokedCount})
-											</label>
+									<div className="flex items-center gap-3">
+										<div className="relative min-w-0 flex-1">
+											<Label htmlFor="access-search" className="sr-only">
+												Search users by name or email
+											</Label>
+											<Search
+												aria-hidden="true"
+												className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+											/>
+											<Input
+												id="access-search"
+												type="search"
+												placeholder="Search by name or email…"
+												value={accessQuery}
+												onChange={(event) => setAccessQuery(event.target.value)}
+												className="pl-9"
+											/>
+										</div>
+										<label
+											htmlFor="show-revoked-users"
+											className="flex shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap text-sm text-muted-foreground"
+										>
+											<Checkbox
+												id="show-revoked-users"
+												checked={showRevokedUsers}
+												onCheckedChange={(checked) =>
+													setShowRevokedUsers(checked === true)
+												}
+											/>
+											Show revoked users ({revokedCount})
+										</label>
+									</div>
+									{matchingGrants.length === 0 ? (
+										<div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+											{accessQuery.trim()
+												? `No users match “${accessQuery.trim()}”.`
+												: "No users to display."}
+										</div>
+									) : (
+										<div
+											className="h-128 divide-y overflow-y-scroll overscroll-contain rounded-lg border"
+											role="region"
+											aria-label="People with access"
+											tabIndex={0}
+										>
+											{matchingGrants.map((grant) => {
+												const isPending =
+													grant.status === "ACTIVE" && !grant.hasSignedIn;
+												const statusLabel =
+													grant.status === "REVOKED"
+														? "Revoked"
+														: isPending
+															? "Awaiting sign-in"
+															: "Active";
+												return (
+													<div
+														key={grant._id}
+														className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_9rem_11rem_auto] lg:items-center"
+													>
+														<div className="min-w-0">
+															<p className="truncate font-medium">
+																{grant.name || grant.email}
+															</p>
+															{grant.name && (
+																<p className="truncate text-sm text-muted-foreground">
+																	{grant.email}
+																</p>
+															)}
+															<p className="mt-1 text-xs text-muted-foreground">
+																{statusLabel}
+															</p>
+														</div>
+														<Select
+															value={grant.role}
+															disabled={grant.status === "REVOKED"}
+															onValueChange={(value) =>
+																setPendingAction({
+																	type: "role",
+																	email: grant.email,
+																	role: value as "ADMIN" | "STUDENT",
+																})
+															}
+														>
+															<SelectTrigger
+																className="w-full"
+																aria-label={`Role for ${grant.email}`}
+															>
+																<SelectValue />
+															</SelectTrigger>
+															<SelectContent>
+																<SelectItem value="STUDENT">Student</SelectItem>
+																<SelectItem value="ADMIN">
+																	Administrator
+																</SelectItem>
+															</SelectContent>
+														</Select>
+														<label className="flex items-center gap-2 text-sm text-muted-foreground">
+															<input
+																type="checkbox"
+																checked={grant.canManageEvents}
+																disabled={
+																	grant.role !== "STUDENT" ||
+																	grant.status !== "ACTIVE" ||
+																	!grant.userId ||
+																	pendingEventManagerIds.has(grant.userId)
+																}
+																onChange={(event) =>
+																	grant.userId &&
+																	void handleEventManagerChange(
+																		grant.userId,
+																		event.target.checked,
+																	)
+																}
+															/>
+															Manage events
+														</label>
+														{grant.status === "REVOKED" ? (
+															<Button
+																variant="outline"
+																size="sm"
+																onClick={() =>
+																	void grantAccess({
+																		email: grant.email,
+																		role: grant.role,
+																	})
+																		.then(() =>
+																			toast.success("Access restored"),
+																		)
+																		.catch(() =>
+																			toast.error("Could not restore access"),
+																		)
+																}
+															>
+																<RotateCcw className="mr-2 h-4 w-4" />
+																Restore
+															</Button>
+														) : (
+															<Button
+																variant="ghost"
+																size="sm"
+																className="text-destructive hover:text-destructive"
+																onClick={() =>
+																	setPendingAction({
+																		type: "revoke",
+																		email: grant.email,
+																	})
+																}
+															>
+																<Ban className="mr-2 h-4 w-4" />
+																Revoke
+															</Button>
+														)}
+													</div>
+												);
+											})}
 										</div>
 									)}
-									<div className="divide-y rounded-lg border">
-										{visibleGrants.map((grant) => {
-										const isPending =
-											grant.status === "ACTIVE" && !grant.hasSignedIn;
-										const statusLabel =
-											grant.status === "REVOKED"
-												? "Revoked"
-												: isPending
-													? "Awaiting sign-in"
-													: "Active";
-										return (
-											<div
-												key={grant._id}
-												className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_9rem_11rem_auto] lg:items-center"
-											>
-												<div className="min-w-0">
-													<p className="truncate font-medium">
-														{grant.name || grant.email}
-													</p>
-													{grant.name && (
-														<p className="truncate text-sm text-muted-foreground">
-															{grant.email}
-														</p>
-													)}
-													<p className="mt-1 text-xs text-muted-foreground">
-														{statusLabel}
-													</p>
-												</div>
-												<Select
-													value={grant.role}
-													disabled={grant.status === "REVOKED"}
-													onValueChange={(value) =>
-														setPendingAction({
-															type: "role",
-															email: grant.email,
-															role: value as "ADMIN" | "STUDENT",
-														})
-													}
-												>
-													<SelectTrigger
-														className="w-full"
-														aria-label={`Role for ${grant.email}`}
-													>
-														<SelectValue />
-													</SelectTrigger>
-													<SelectContent>
-														<SelectItem value="STUDENT">Student</SelectItem>
-														<SelectItem value="ADMIN">Administrator</SelectItem>
-													</SelectContent>
-												</Select>
-												<label className="flex items-center gap-2 text-sm text-muted-foreground">
-													<input
-														type="checkbox"
-														checked={grant.canManageEvents}
-														disabled={
-															grant.role !== "STUDENT" ||
-															grant.status !== "ACTIVE" ||
-															!grant.userId ||
-															pendingEventManagerIds.has(grant.userId)
-														}
-														onChange={(event) =>
-															grant.userId &&
-															void handleEventManagerChange(
-																grant.userId,
-																event.target.checked,
-															)
-														}
-													/>
-													Manage events
-												</label>
-												{grant.status === "REVOKED" ? (
-													<Button
-														variant="outline"
-														size="sm"
-														onClick={() =>
-															void grantAccess({
-																email: grant.email,
-																role: grant.role,
-															})
-																.then(() => toast.success("Access restored"))
-																.catch(() =>
-																	toast.error("Could not restore access"),
-																)
-														}
-													>
-														<RotateCcw className="mr-2 h-4 w-4" />
-														Restore
-													</Button>
-												) : (
-													<Button
-														variant="ghost"
-														size="sm"
-														className="text-destructive hover:text-destructive"
-														onClick={() =>
-															setPendingAction({
-																type: "revoke",
-																email: grant.email,
-															})
-														}
-													>
-														<Ban className="mr-2 h-4 w-4" />
-														Revoke
-													</Button>
-												)}
-											</div>
-										);
-										})}
-									</div>
 								</div>
 							)}
 						</CardContent>
