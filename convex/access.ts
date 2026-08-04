@@ -191,12 +191,21 @@ export const migrateFromEnvironment = mutation({
 
 		const existingGrants = await ctx.db.query("accessGrants").collect();
 		const grantsByEmail = new Map<string, (typeof existingGrants)[number]>();
+		const grantsByUser = new Map<string, (typeof existingGrants)[number]>();
 		for (const grant of existingGrants) {
 			const email = normalizeEmail(grant.email);
 			if (grantsByEmail.has(email)) {
 				throw new ConvexError(`Multiple access grants have the email ${email}`);
 			}
 			grantsByEmail.set(email, grant);
+			if (grant.userId) {
+				if (grantsByUser.has(grant.userId)) {
+					throw new ConvexError(
+						"Multiple access grants are linked to the same user",
+					);
+				}
+				grantsByUser.set(grant.userId, grant);
+			}
 		}
 
 		let linkedUsers = 0;
@@ -206,6 +215,12 @@ export const migrateFromEnvironment = mutation({
 		for (const [email, role] of desiredGrants) {
 			const user = usersByEmail.get(email);
 			const grant = grantsByEmail.get(email);
+			const userGrant = user ? grantsByUser.get(user._id) : undefined;
+			if (userGrant && userGrant._id !== grant?._id) {
+				throw new ConvexError(
+					`${email} is already linked to another access grant`,
+				);
+			}
 			const canManageEvents =
 				role === "STUDENT" && (user?.canManageEvents ?? false);
 
