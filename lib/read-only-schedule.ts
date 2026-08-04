@@ -31,7 +31,10 @@ export function initialScheduleDate(today: string, semester?: SemesterRange) {
 	if (day === 6) date = addDays(date, direction === 1 ? 2 : -1);
 	if (day === 0) date = addDays(date, direction === 1 ? 1 : -2);
 	if (semester && date > semester.endDate) {
-		return initialScheduleDate(semester.endDate, semester);
+		const endDay = new Date(`${semester.endDate}T00:00:00Z`).getUTCDay();
+		if (endDay === 6) return addDays(semester.endDate, -1);
+		if (endDay === 0) return addDays(semester.endDate, -2);
+		return semester.endDate;
 	}
 	return date;
 }

@@ -51,6 +51,12 @@ describe("read-only schedule dates", () => {
 		expect(initialScheduleDate("2026-05-12", semester)).toBe("2026-05-06");
 	});
 
+	test("uses Friday when a semester ends on a weekend", () => {
+		const weekendEnd = { startDate: "2026-01-20", endDate: "2026-05-09" };
+		expect(initialScheduleDate("2026-05-09", weekendEnd)).toBe("2026-05-08");
+		expect(initialScheduleDate("2026-05-10", weekendEnd)).toBe("2026-05-08");
+	});
+
 	test("uses the New York calendar date at UTC boundaries", () => {
 		expect(dateInNewYork(new Date("2026-03-01T01:00:00Z"))).toBe("2026-02-28");
 	});
