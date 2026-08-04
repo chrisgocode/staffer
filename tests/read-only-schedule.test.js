@@ -60,4 +60,8 @@ describe("read-only schedule dates", () => {
 	test("uses the New York calendar date at UTC boundaries", () => {
 		expect(dateInNewYork(new Date("2026-03-01T01:00:00Z"))).toBe("2026-02-28");
 	});
+
+	test("rejects invalid dates explicitly", () => {
+		expect(() => dateInNewYork(new Date(Number.NaN))).toThrow("Invalid date");
+	});
 });

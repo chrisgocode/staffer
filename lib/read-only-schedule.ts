@@ -2,6 +2,7 @@ type SemesterRange = { startDate: string; endDate: string };
 type Holiday = { date: string; isSubstitution: boolean };
 
 export function dateInNewYork(date = new Date()) {
+	if (!Number.isFinite(date.getTime())) throw new RangeError("Invalid date");
 	const parts = new Intl.DateTimeFormat("en-US", {
 		timeZone: "America/New_York",
 		year: "numeric",
@@ -10,7 +11,13 @@ export function dateInNewYork(date = new Date()) {
 	}).formatToParts(date);
 	const value = (type: "year" | "month" | "day") =>
 		parts.find((part) => part.type === type)?.value;
-	return `${value("year")}-${value("month")}-${value("day")}`;
+	const year = value("year");
+	const month = value("month");
+	const day = value("day");
+	if (!year || !month || !day) {
+		throw new Error("Date formatter did not return year, month, and day");
+	}
+	return `${year}-${month}-${day}`;
 }
 
 function addDays(date: string, amount: number) {
