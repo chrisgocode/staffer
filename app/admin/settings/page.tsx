@@ -81,6 +81,10 @@ export default function Settings() {
 	const [pendingEventManagerIds, setPendingEventManagerIds] = useState(
 		new Set<Id<"users">>(),
 	);
+	const pendingRestores = useRef(new Set<string>());
+	const [pendingRestoreEmails, setPendingRestoreEmails] = useState(
+		new Set<string>(),
+	);
 	const isLoading = user === undefined;
 	const revokedCount =
 		grants?.filter((grant) => grant.status === "REVOKED").length ?? 0;
@@ -126,15 +130,39 @@ export default function Settings() {
 	const handleRoleChange = async (
 		emailAddress: string,
 		nextRole: "ADMIN" | "STUDENT",
+		successMessage = "Role updated",
+		fallbackError = "Could not update role",
 	) => {
 		try {
 			await grantAccess({ email: emailAddress, role: nextRole });
-			toast.success("Role updated");
+			toast.success(successMessage);
 		} catch (error) {
 			console.error(error);
-			toast.error(
-				error instanceof Error ? error.message : "Could not update role",
+			toast.error(error instanceof Error ? error.message : fallbackError);
+		}
+	};
+
+	const handleRestore = async (
+		emailAddress: string,
+		role: "ADMIN" | "STUDENT",
+	) => {
+		if (pendingRestores.current.has(emailAddress)) return;
+		pendingRestores.current.add(emailAddress);
+		setPendingRestoreEmails((current) => new Set(current).add(emailAddress));
+		try {
+			await handleRoleChange(
+				emailAddress,
+				role,
+				"Access restored",
+				"Could not restore access",
 			);
+		} finally {
+			pendingRestores.current.delete(emailAddress);
+			setPendingRestoreEmails((current) => {
+				const next = new Set(current);
+				next.delete(emailAddress);
+				return next;
+			});
 		}
 	};
 
@@ -420,21 +448,15 @@ export default function Settings() {
 															<Button
 																variant="outline"
 																size="sm"
+																disabled={pendingRestoreEmails.has(grant.email)}
 																onClick={() =>
-																	void grantAccess({
-																		email: grant.email,
-																		role: grant.role,
-																	})
-																		.then(() =>
-																			toast.success("Access restored"),
-																		)
-																		.catch(() =>
-																			toast.error("Could not restore access"),
-																		)
+																	void handleRestore(grant.email, grant.role)
 																}
 															>
 																<RotateCcw className="mr-2 h-4 w-4" />
-																Restore
+																{pendingRestoreEmails.has(grant.email)
+																	? "Restoring…"
+																	: "Restore"}
 															</Button>
 														) : (
 															<Button
