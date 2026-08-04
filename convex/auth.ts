@@ -21,10 +21,17 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 			const email = normalizeEmail(args.profile.email ?? "");
 			if (!email) throw new Error("Google did not provide an email address");
 
+			const existingUserGrant = await db
+				.query("accessGrants")
+				.withIndex("by_user", (q) => q.eq("userId", args.userId))
+				.unique();
 			let grant = await db
 				.query("accessGrants")
 				.withIndex("by_email", (q) => q.eq("email", email))
 				.unique();
+			if (existingUserGrant && existingUserGrant._id !== grant?._id) {
+				throw new Error("This account is linked to another access grant");
+			}
 
 			if (!grant) {
 				// remove after grants are migrated.
@@ -53,14 +60,6 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 			if (grant.userId && grant.userId !== args.userId) {
 				throw new Error("This access grant is linked to another account");
 			}
-			const existingUserGrant = await db
-				.query("accessGrants")
-				.withIndex("by_user", (q) => q.eq("userId", args.userId))
-				.unique();
-			if (existingUserGrant && existingUserGrant._id !== grant._id) {
-				throw new Error("This account is linked to another access grant");
-			}
-
 			const user = await db.get(args.userId);
 			if (!user) throw new Error("User profile was not created");
 
