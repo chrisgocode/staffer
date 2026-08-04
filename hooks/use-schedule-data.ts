@@ -5,9 +5,10 @@ import { getStaffColor } from "@/lib/schedule-colors";
 import type { Shift, StaffMember } from "@/lib/types";
 
 export function useScheduleData(semester: string) {
-	const scheduleData = useQuery(api.schedule.schedule.getScheduleForSemester, {
-		semester,
-	});
+	const scheduleData = useQuery(
+		api.schedule.schedule.getScheduleForSemester,
+		semester ? { semester } : "skip",
+	);
 	const staffData = useQuery(api.schedule.schedule.getStaffMembers);
 
 	const publishSchedule = useMutation(api.schedule.schedule.publishSchedule);

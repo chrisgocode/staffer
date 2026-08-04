@@ -7,10 +7,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { semesterOptions } from "@/lib/schedule-utils";
 
 interface ScheduleHeaderProps {
 	selectedSemester: string;
+	semesters: string[];
 	onSemesterChange: (semester: string) => void;
 	weekOffset: number;
 	onWeekOffsetChange: (offset: number) => void;
@@ -21,6 +21,7 @@ interface ScheduleHeaderProps {
 
 export function ScheduleHeader({
 	selectedSemester,
+	semesters,
 	onSemesterChange,
 	weekOffset,
 	onWeekOffsetChange,
@@ -36,12 +37,16 @@ export function ScheduleHeader({
 						Staff Schedule
 					</h2>
 				</div>
-				<Select value={selectedSemester} onValueChange={onSemesterChange}>
+				<Select
+					value={selectedSemester}
+					onValueChange={onSemesterChange}
+					disabled={semesters.length === 0}
+				>
 					<SelectTrigger className="w-[180px]">
 						<SelectValue placeholder="Select semester" />
 					</SelectTrigger>
 					<SelectContent>
-						{semesterOptions.map((semester) => (
+						{semesters.map((semester) => (
 							<SelectItem key={semester} value={semester}>
 								{semester}
 							</SelectItem>

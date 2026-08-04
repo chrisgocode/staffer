@@ -47,7 +47,6 @@ import {
 } from "@/components/ui/shadcn-io/dropzone";
 import { Spinner } from "@/components/ui/spinner";
 import { api } from "@/convex/_generated/api";
-import { semesterOptions } from "@/lib/schedule-utils";
 
 type DayOfWeek = "monday" | "tuesday" | "wednesday" | "thursday" | "friday";
 
@@ -67,6 +66,7 @@ type SchedulePreferences = {
 
 export default function Settings() {
 	const user = useQuery(api.users.getCurrentUser);
+	const semesterData = useQuery(api.schedule.schedule.listSemesters);
 	const getCalendarURL = useQuery(api.calendar.getMyCalendarUrl);
 	const generateCalendarToken = useMutation(api.calendar.generateCalendarToken);
 	const updateUserName = useMutation(api.users.updateUserName);
@@ -90,9 +90,7 @@ export default function Settings() {
 			friday: { isFullDayOff: false, timeBlocks: [] },
 		});
 	const [selectedDay, setSelectedDay] = useState<DayOfWeek | null>(null);
-	const [selectedSemester, setSelectedSemester] = useState<string>(
-		semesterOptions[0],
-	);
+	const [selectedSemester, setSelectedSemester] = useState("");
 
 	const daysOfWeek: { key: DayOfWeek; label: string; short: string }[] = [
 		{ key: "monday", label: "Monday", short: "Mon" },
@@ -103,6 +101,16 @@ export default function Settings() {
 	];
 
 	const calendarURL = getCalendarURL;
+
+	useEffect(() => {
+		if (!selectedSemester && semesterData) {
+			setSelectedSemester(
+				semesterData.defaultSemester ??
+					semesterData.semesters[0]?.semester ??
+					"",
+			);
+		}
+	}, [selectedSemester, semesterData]);
 
 	// Load preferences from user data for selected semester
 	useEffect(() => {
@@ -262,12 +270,8 @@ export default function Settings() {
 		}));
 	};
 
-	const formatTimeBlocks = (blocks: TimeBlock[]) => {
-		if (blocks.length === 0) return null;
-		return blocks.map((block) => `${block.start}-${block.end}`).join(", ");
-	};
-
 	const handleSavePreferences = async () => {
+		if (!selectedSemester) return;
 		try {
 			await updateSchedulePreferences({
 				semester: selectedSemester,
@@ -503,12 +507,13 @@ export default function Settings() {
 									<Select
 										value={selectedSemester}
 										onValueChange={setSelectedSemester}
+										disabled={!semesterData?.semesters.length}
 									>
 										<SelectTrigger className="w-[180px]">
 											<SelectValue placeholder="Select semester" />
 										</SelectTrigger>
 										<SelectContent>
-											{semesterOptions.map((semester) => (
+											{semesterData?.semesters.map(({ semester }) => (
 												<SelectItem key={semester} value={semester}>
 													{semester}
 												</SelectItem>
@@ -518,7 +523,7 @@ export default function Settings() {
 								</div>
 							</div>
 							<div className="grid grid-cols-5 gap-2">
-								{daysOfWeek.map(({ key, label, short }) => {
+								{daysOfWeek.map(({ key, short }) => {
 									const dayPref = schedulePreferences[key];
 									const hasPreferences =
 										dayPref.isFullDayOff || dayPref.timeBlocks.length > 0;
@@ -683,7 +688,10 @@ export default function Settings() {
 							)}
 
 							<div className="flex justify-end pt-4">
-								<Button onClick={handleSavePreferences}>
+								<Button
+									onClick={handleSavePreferences}
+									disabled={!selectedSemester}
+								>
 									Save Preferences
 								</Button>
 							</div>

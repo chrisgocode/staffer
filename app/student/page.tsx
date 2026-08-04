@@ -3,7 +3,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { CalendarView } from "@/components/student/calendar-view";
+import { EventCalendar } from "@/components/event-calendar";
 import { EventDetailDialog } from "@/components/student/event/event-detail-dialog";
 import { UpcomingEventsList } from "@/components/student/event/upcoming-events-list";
 import { StudentHeader } from "@/components/student/student-header";
@@ -99,7 +99,7 @@ export default function StudentDashboard() {
 				{isCalendarEnlarged ? (
 					<div className="space-y-6">
 						<div className="w-full">
-							<CalendarView
+							<EventCalendar
 								events={events}
 								onEventClick={handleEventClick}
 								isEnlarged={isCalendarEnlarged}
@@ -121,7 +121,7 @@ export default function StudentDashboard() {
 				) : (
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 						<div className="lg:col-span-2">
-							<CalendarView
+							<EventCalendar
 								events={events}
 								onEventClick={handleEventClick}
 								isEnlarged={isCalendarEnlarged}

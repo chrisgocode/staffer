@@ -43,7 +43,7 @@ export function StudentHeader() {
 	return (
 		<header className="border-b border-border bg-card">
 			<div className="container mx-auto px-4 py-4">
-				<div className="grid grid-cols-3 items-center">
+				<div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
 					<div className="flex items-center gap-1">
 						<Link href="/student">
 							<Image
@@ -53,20 +53,27 @@ export function StudentHeader() {
 								height={48}
 							/>
 						</Link>
-						<h1 className="text-xl font-semibold">NC Event Staffing</h1>
+						<h1 className="hidden text-xl font-semibold xl:block">
+							NC Event Staffing
+						</h1>
 					</div>
 					<div className="flex justify-center">
-						{isEventManager && (
-							<NavigationMenu viewport={false}>
-								<NavigationMenuList>
-									<NavigationMenuItem>
+						<NavigationMenu viewport={false}>
+							<NavigationMenuList>
+								<NavigationMenuItem>
+									<NavigationMenuLink asChild>
+										<Link href="/student/schedule">Schedule</Link>
+									</NavigationMenuLink>
+								</NavigationMenuItem>
+								{isEventManager && (
+									<NavigationMenuItem className="hidden md:block">
 										<NavigationMenuLink asChild>
 											<Link href="/admin">Create Events</Link>
 										</NavigationMenuLink>
 									</NavigationMenuItem>
-								</NavigationMenuList>
-							</NavigationMenu>
-						)}
+								)}
+							</NavigationMenuList>
+						</NavigationMenu>
 					</div>
 					<div className="flex items-center justify-end gap-2">
 						<DropdownMenu>

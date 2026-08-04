@@ -1,4 +1,9 @@
-import type { Shift } from "./types";
+type LayoutShift = {
+	_id: string;
+	dayOfWeek: number;
+	startTime: string;
+	endTime: string;
+};
 
 export interface ShiftLayout {
 	column: number;
@@ -7,7 +12,10 @@ export interface ShiftLayout {
 	left: string;
 }
 
-export function shiftsOverlap(shift1: Shift, shift2: Shift): boolean {
+export function shiftsOverlap(
+	shift1: LayoutShift,
+	shift2: LayoutShift,
+): boolean {
 	// Shifts must be on the same day
 	if (shift1.dayOfWeek !== shift2.dayOfWeek) {
 		return false;
@@ -41,7 +49,10 @@ function parseTimeToMinutes(time: string): number {
 	return hours * 60 + minutes;
 }
 
-function findOverlappingShifts(shift: Shift, allShifts: Shift[]): Shift[] {
+function findOverlappingShifts<T extends LayoutShift>(
+	shift: T,
+	allShifts: T[],
+): T[] {
 	return allShifts.filter(
 		(other) => other._id !== shift._id && shiftsOverlap(shift, other),
 	);
@@ -51,8 +62,8 @@ function findOverlappingShifts(shift: Shift, allShifts: Shift[]): Shift[] {
  * Calculate layout information for all shifts in a day
  * Returns a Map of shift ID to layout info
  */
-export function calculateShiftLayout(
-	shifts: Shift[],
+export function calculateShiftLayout<T extends LayoutShift>(
+	shifts: T[],
 	dayIndex: number,
 ): Map<string, ShiftLayout> {
 	const layoutMap = new Map<string, ShiftLayout>();
@@ -74,7 +85,7 @@ export function calculateShiftLayout(
 
 	// Build overlap groups - shifts that need to share space
 	const processed = new Set<string>();
-	const overlapGroups: Shift[][] = [];
+	const overlapGroups: T[][] = [];
 
 	for (const shift of sortedShifts) {
 		if (processed.has(shift._id)) continue;
@@ -139,7 +150,7 @@ export function calculateShiftLayout(
  * Assign column positions to overlapping shifts
  * Uses a greedy algorithm similar to interval scheduling
  */
-function assignColumnsToShifts(shifts: Shift[]): Map<string, number> {
+function assignColumnsToShifts(shifts: LayoutShift[]): Map<string, number> {
 	const columnAssignments = new Map<string, number>();
 
 	// Sort by start time, then by duration (longer first)
