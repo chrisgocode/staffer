@@ -1,8 +1,10 @@
 "use client";
 
+import { useQuery } from "convex/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
+import { api } from "@/convex/_generated/api";
 import { useScheduleData } from "@/hooks/use-schedule-data";
 import { useShiftDragDrop } from "@/hooks/use-shift-drag-drop";
 import { useShiftResize } from "@/hooks/use-shift-resize";
@@ -18,7 +20,8 @@ import { StaffSidebar } from "./StaffSidebar";
 
 export function StaffScheduleCalendar() {
 	const [weekOffset, setWeekOffset] = useState(0);
-	const [selectedSemester, setSelectedSemester] = useState("Spring 2026"); // hardcoding for now
+	const semesterData = useQuery(api.schedule.schedule.listSemesters);
+	const [selectedSemester, setSelectedSemester] = useState("");
 	const [shifts, setShifts] = useState<Shift[]>([]);
 	const [isPublishing, setIsPublishing] = useState(false);
 	const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
@@ -27,6 +30,16 @@ export function StaffScheduleCalendar() {
 
 	const { publishedShifts, staffMembers, publishSchedule, isLoading } =
 		useScheduleData(selectedSemester);
+
+	useEffect(() => {
+		if (!selectedSemester && semesterData) {
+			setSelectedSemester(
+				semesterData.defaultSemester ??
+					semesterData.semesters[0]?.semester ??
+					"",
+			);
+		}
+	}, [selectedSemester, semesterData]);
 
 	// Reset initialization when semester changes
 	useEffect(() => {
@@ -228,6 +241,9 @@ export function StaffScheduleCalendar() {
 				<div className="p-6 space-y-6">
 					<ScheduleHeader
 						selectedSemester={selectedSemester}
+						semesters={
+							semesterData?.semesters.map((item) => item.semester) ?? []
+						}
 						onSemesterChange={setSelectedSemester}
 						weekOffset={weekOffset}
 						onWeekOffsetChange={setWeekOffset}

@@ -1,9 +1,12 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
+import { dateInNewYork } from "../../lib/read-only-schedule";
+import { resolveStudentSemesters } from "../../lib/semester-schedule";
 import { internalMutation, mutation, query } from "../_generated/server";
 import {
 	getUserAccess,
 	requireActiveUser,
 	requireAdmin,
+	requireStudent,
 } from "../permissions";
 import { doesShiftConflict, getAllBlockedRanges } from "./conflictUtils";
 
@@ -53,7 +56,7 @@ export const getScheduleForSemester = query({
 		v.null(),
 	),
 	handler: async (ctx, args) => {
-		await requireActiveUser(ctx);
+		await requireAdmin(ctx);
 
 		// Find active schedule for semester
 		const schedule = await ctx.db
@@ -89,6 +92,154 @@ export const getScheduleForSemester = query({
 		return {
 			...schedule,
 			shifts: enrichedShifts,
+		};
+	},
+});
+
+export const listSemesters = query({
+	args: {},
+	returns: v.object({
+		semesters: v.array(
+			v.object({
+				semester: v.string(),
+				startDate: v.string(),
+				endDate: v.string(),
+			}),
+		),
+		defaultSemester: v.optional(v.string()),
+	}),
+	handler: async (ctx) => {
+		await requireActiveUser(ctx);
+		const semesters = (await ctx.db.query("semesters").collect())
+			.map(({ semester, startDate, endDate }) => ({
+				semester,
+				startDate,
+				endDate,
+			}))
+			.sort((a, b) => a.startDate.localeCompare(b.startDate));
+		const publishedSchedules = (await ctx.db.query("staffSchedules").collect())
+			.filter((schedule) => schedule.isActive)
+			.sort((a, b) => b.createdAt - a.createdAt);
+		const { defaultSemester } = resolveStudentSemesters({
+			semesters,
+			publishedSchedules,
+			today: dateInNewYork(),
+		});
+		return {
+			semesters,
+			...(defaultSemester ? { defaultSemester } : {}),
+		};
+	},
+});
+
+export const getStudentSchedule = query({
+	args: { semester: v.optional(v.string()) },
+	returns: v.object({
+		selectedSemester: v.optional(v.string()),
+		visibleSemesters: v.array(
+			v.object({
+				semester: v.string(),
+				startDate: v.optional(v.string()),
+				endDate: v.optional(v.string()),
+			}),
+		),
+		schedule: v.union(
+			v.object({
+				shifts: v.array(
+					v.object({
+						_id: v.id("staffShifts"),
+						userId: v.id("users"),
+						userName: v.string(),
+						dayOfWeek: v.number(),
+						startTime: v.string(),
+						endTime: v.string(),
+						isCurrentUser: v.boolean(),
+					}),
+				),
+			}),
+			v.null(),
+		),
+		holidays: v.array(
+			v.object({
+				date: v.string(),
+				name: v.string(),
+				isSubstitution: v.boolean(),
+			}),
+		),
+	}),
+	handler: async (ctx, args) => {
+		const { user } = await requireStudent(ctx);
+		const semesters = await ctx.db.query("semesters").collect();
+		const publishedSchedules = (await ctx.db.query("staffSchedules").collect())
+			.filter((schedule) => schedule.isActive)
+			.sort((a, b) => b.createdAt - a.createdAt);
+		const visibility = resolveStudentSemesters({
+			semesters,
+			publishedSchedules,
+			today: dateInNewYork(),
+		});
+		if (args.semester && !visibility.allowedSemesters.includes(args.semester)) {
+			throw new ConvexError("This semester is not available");
+		}
+		const selectedSemester = args.semester ?? visibility.defaultSemester;
+		const semesterDates = semesters.find(
+			(semester) => semester.semester === selectedSemester,
+		);
+		const selectedSchedule = publishedSchedules.find(
+			(schedule) => schedule.semester === selectedSemester,
+		);
+		const shifts = selectedSchedule
+			? await ctx.db
+					.query("staffShifts")
+					.withIndex("by_schedule_id", (q) =>
+						q.eq("scheduleId", selectedSchedule._id),
+					)
+					.collect()
+			: [];
+		const enrichedShifts = await Promise.all(
+			shifts.map(async (shift) => {
+				const staffMember = await ctx.db.get(shift.userId);
+				return {
+					_id: shift._id,
+					userId: shift.userId,
+					userName: staffMember?.name ?? "Unknown",
+					dayOfWeek: shift.dayOfWeek,
+					startTime: shift.startTime,
+					endTime: shift.endTime,
+					isCurrentUser: shift.userId === user._id,
+				};
+			}),
+		);
+		const holidays = semesterDates
+			? await ctx.db
+					.query("holidays")
+					.withIndex("by_date", (q) =>
+						q
+							.gte("date", semesterDates.startDate)
+							.lte("date", semesterDates.endDate),
+					)
+					.collect()
+			: [];
+		const visibleSemesters = visibility.allowedSemesters.map((semester) => {
+			const dates = semesters.find((item) => item.semester === semester);
+			return dates
+				? {
+						semester,
+						startDate: dates.startDate,
+						endDate: dates.endDate,
+					}
+				: { semester };
+		});
+
+		return {
+			...(selectedSemester ? { selectedSemester } : {}),
+			visibleSemesters,
+			schedule: selectedSchedule ? { shifts: enrichedShifts } : null,
+			holidays: holidays.map((holiday) => ({
+				date: holiday.date,
+				name: holiday.name,
+				isSubstitution: holiday.isSubstitution ?? false,
+			})),
 		};
 	},
 });
@@ -194,13 +345,15 @@ export const getStaffMembers = query({
 			),
 		);
 
-		return staff.filter((user) => user !== null).map((user) => ({
-			_id: user._id,
-			name: user.name,
-			email: user.email,
-			classSchedule: user.classSchedule,
-			preferences: user.preferences,
-		}));
+		return staff
+			.filter((user) => user !== null)
+			.map((user) => ({
+				_id: user._id,
+				name: user.name,
+				email: user.email,
+				classSchedule: user.classSchedule,
+				preferences: user.preferences,
+			}));
 	},
 });
 

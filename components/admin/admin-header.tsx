@@ -47,7 +47,7 @@ export function AdminHeader({ onCreateEvent }: AdminHeaderProps) {
 	return (
 		<header className="border-b border-border bg-card">
 			<div className="container mx-auto px-4 py-4">
-				<div className="grid grid-cols-3 items-center">
+				<div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
 					<div className="flex items-center gap-1">
 						<Link href="/admin">
 							<Image
@@ -57,8 +57,10 @@ export function AdminHeader({ onCreateEvent }: AdminHeaderProps) {
 								height={48}
 							/>
 						</Link>
-						<h1 className="text-xl font-semibold">NC Event Staffing</h1>
-						<span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
+						<h1 className="hidden text-xl font-semibold xl:block">
+							NC Event Staffing
+						</h1>
+						<span className="hidden rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary lg:inline-flex">
 							{isAdmin ? "Admin" : "Event Manager"}
 						</span>
 					</div>
@@ -89,11 +91,15 @@ export function AdminHeader({ onCreateEvent }: AdminHeaderProps) {
 							</NavigationMenuList>
 						</NavigationMenu>
 					</div>
-					<div className="flex items-center justify-end gap-3">
+					<div className="flex items-center justify-end gap-2">
 						{onCreateEvent && (
-							<Button onClick={onCreateEvent}>
+							<Button
+								onClick={onCreateEvent}
+								className="h-10 w-10 p-0 lg:w-auto lg:px-4"
+								aria-label="Create new event"
+							>
 								<Plus className="h-4 w-4" />
-								Create New Event
+								<span className="hidden lg:inline">Create New Event</span>
 							</Button>
 						)}
 						<div className="flex flex-row gap-2">

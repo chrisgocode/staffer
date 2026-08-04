@@ -4,10 +4,10 @@ import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { AdminCalendarView } from "@/components/admin/admin-calendar-view";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { CreateEventDialog } from "@/components/admin/event/create-event-dialog";
 import { EventManagementList } from "@/components/admin/event/event-management-list";
+import { EventCalendar } from "@/components/event-calendar";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -120,7 +120,7 @@ export default function AdminDashboard() {
 				{isCalendarEnlarged ? (
 					<div className="space-y-6">
 						<div className="w-full">
-							<AdminCalendarView
+							<EventCalendar
 								events={events}
 								onEventClick={handleEventClick}
 								getPendingCount={getPendingCount}
@@ -144,7 +144,7 @@ export default function AdminDashboard() {
 				) : (
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 						<div className="lg:col-span-2">
-							<AdminCalendarView
+							<EventCalendar
 								events={events}
 								onEventClick={handleEventClick}
 								getPendingCount={getPendingCount}
