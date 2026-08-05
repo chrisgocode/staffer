@@ -44,6 +44,11 @@ export function AdminHeader({ onCreateEvent }: AdminHeaderProps) {
 		router.push("/admin/settings");
 	};
 
+	const handleSignOut = async () => {
+		await signOut();
+		window.location.replace("/");
+	};
+
 	return (
 		<header className="border-b border-border bg-card">
 			<div className="container mx-auto px-4 py-4">
@@ -136,7 +141,7 @@ export function AdminHeader({ onCreateEvent }: AdminHeaderProps) {
 											Settings
 										</DropdownMenuItem>
 									)}
-									<DropdownMenuItem onClick={signOut}>
+									<DropdownMenuItem onClick={handleSignOut}>
 										<LogOut className="mr-2 h-4 w-4" />
 										Sign Out
 									</DropdownMenuItem>

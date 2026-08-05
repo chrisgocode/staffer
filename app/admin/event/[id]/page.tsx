@@ -29,18 +29,25 @@ import { useEventManagement } from "@/hooks/use-event-management";
 export default function EventDetailPage() {
 	const routeParams = useParams<{ id: string }>();
 	const user = useQuery(api.users.getCurrentUser);
-	const events = useQuery(api.events.listEvents);
+	const hasActiveAccess =
+		user?.accessStatus === "ACTIVE" &&
+		(user.role === "ADMIN" || user.canManageEvents === true);
+	const events = useQuery(
+		api.events.listEvents,
+		hasActiveAccess ? {} : "skip",
+	);
 	const event = events?.find((e) => e._id === routeParams.id);
 	const eventSignups =
 		useQuery(
 			api.signups.getEventSignups,
-			event ? { eventId: event._id } : "skip",
+			hasActiveAccess && event ? { eventId: event._id } : "skip",
 		) ?? [];
 	const searchParams = useSearchParams();
 	const router = useRouter();
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
 	const [editDialogOpen, setEditDialogOpen] = useState(false);
-	const isLoading = user === undefined || events === undefined;
+	const isLoading =
+		user === undefined || (hasActiveAccess && events === undefined);
 
 	const {
 		signupToRemove,
@@ -58,14 +65,11 @@ export default function EventDetailPage() {
 	}, [searchParams]);
 
 	useEffect(() => {
-		// Allow admins and event managers
-		const hasAccess = user?.role === "ADMIN" || user?.canManageEvents === true;
-		if (!isLoading && (!user || !hasAccess)) {
-			router.push("/");
-		}
-	}, [user, isLoading, router]);
+		if (user === undefined || hasActiveAccess) return;
+		router.replace(user?.accessStatus === "REVOKED" ? "/unauthorized" : "/");
+	}, [user, hasActiveAccess, router]);
 
-	if (isLoading) {
+	if (isLoading || !hasActiveAccess) {
 		return (
 			<div className="min-h-screen bg-background">
 				<AdminHeader onCreateEvent={() => setCreateDialogOpen(true)} />

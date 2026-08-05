@@ -50,7 +50,12 @@ type PendingAction =
 
 export default function Settings() {
 	const user = useQuery(api.users.getCurrentUser);
-	const grants = useQuery(api.access.listAccessGrants);
+	const hasActiveAccess =
+		user?.accessStatus === "ACTIVE" && user.role === "ADMIN";
+	const grants = useQuery(
+		api.access.listAccessGrants,
+		hasActiveAccess ? {} : "skip",
+	);
 	const updateUserName = useMutation(api.users.updateUserName);
 	const grantAccess = useMutation(api.access.grantAccess);
 	const revokeAccess = useMutation(api.access.revokeAccess);
@@ -108,8 +113,9 @@ export default function Settings() {
 	}, [accessGrantSearch, accessQuery, visibleGrants]);
 
 	useEffect(() => {
-		if (!isLoading && (!user || user.role !== "ADMIN")) router.push("/");
-	}, [user, isLoading, router]);
+		if (isLoading || hasActiveAccess) return;
+		router.replace(user?.accessStatus === "REVOKED" ? "/unauthorized" : "/");
+	}, [user, isLoading, hasActiveAccess, router]);
 
 	const handleNameEdit = () => {
 		if (!isEditingName && user) setEditedName(user.name);
@@ -226,7 +232,7 @@ export default function Settings() {
 		}
 	};
 
-	if (isLoading || !user) {
+	if (isLoading || !hasActiveAccess) {
 		return (
 			<div className="flex min-h-screen items-center justify-center">
 				<Spinner />

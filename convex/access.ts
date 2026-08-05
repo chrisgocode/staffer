@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { type MutationCtx, mutation, query } from "./_generated/server";
 import { grantsFromEnvironment, normalizeEmail } from "./accessControl";
-import { requireAdmin } from "./permissions";
+import { getActiveIdentity, requireAdmin } from "./permissions";
 
 const roleValidator = v.union(v.literal("ADMIN"), v.literal("STUDENT"));
 
@@ -40,7 +40,8 @@ export const listAccessGrants = query({
 		}),
 	),
 	handler: async (ctx) => {
-		await requireAdmin(ctx);
+		const identity = await getActiveIdentity(ctx);
+		if (!identity || identity.access.role !== "ADMIN") return [];
 		const grants = await ctx.db.query("accessGrants").collect();
 		return await Promise.all(
 			grants.map(async (grant) => {

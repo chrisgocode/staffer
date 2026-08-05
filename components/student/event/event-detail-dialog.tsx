@@ -41,14 +41,16 @@ export function EventDetailDialog({
 	onOpenChange,
 }: EventDetailDialogProps) {
 	const user = useQuery(api.users.getCurrentUser);
+	const hasActiveAccess = user?.accessStatus === "ACTIVE";
 	const addSignup = useMutation(api.signups.signupForEvent);
-	const userSignups = useQuery(api.signups.getUserSignups) ?? [];
+	const userSignups =
+		useQuery(api.signups.getUserSignups, hasActiveAccess ? {} : "skip") ?? [];
 	const updateSignup = useMutation(api.signups.editSignupEvent);
 	const deleteSignup = useMutation(api.signups.cancelSignup);
 	const eventSignups =
 		useQuery(
 			api.signups.getPublicEventSignups,
-			event ? { eventId: event._id } : "skip",
+			event && hasActiveAccess ? { eventId: event._id } : "skip",
 		) ?? [];
 	const [timeslots, setTimeslots] = useState<
 		Array<{ startTime: string; endTime: string }>

@@ -2,8 +2,8 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import {
+	getActiveIdentity,
 	isEventManager,
-	requireActiveUser,
 	requireEventManager,
 	requireStudent,
 } from "./permissions";
@@ -189,8 +189,9 @@ export const getEventSignups = query({
 		}),
 	),
 	handler: async (ctx, args) => {
-		const { user } = await requireActiveUser(ctx);
-		const userId = user._id;
+		const identity = await getActiveIdentity(ctx);
+		if (!identity) return [];
+		const userId = identity.user._id;
 
 		const event = await ctx.db.get(args.eventId);
 		if (!event) {
@@ -259,8 +260,9 @@ export const getEventSignupsBatch = query({
 		),
 	),
 	handler: async (ctx, args) => {
-		const { user } = await requireActiveUser(ctx);
-		const userId = user._id;
+		const identity = await getActiveIdentity(ctx);
+		if (!identity) return {};
+		const userId = identity.user._id;
 
 		const result: Record<
 			Id<"events">,
@@ -359,7 +361,7 @@ export const getPublicEventSignups = query({
 		}),
 	),
 	handler: async (ctx, args) => {
-		await requireActiveUser(ctx);
+		if (!(await getActiveIdentity(ctx))) return [];
 
 		// Return minimal, non-sensitive signup details for roster display
 		const signups = await ctx.db
@@ -422,7 +424,7 @@ export const getPublicEventSignupsBatch = query({
 		),
 	),
 	handler: async (ctx, args) => {
-		await requireActiveUser(ctx);
+		if (!(await getActiveIdentity(ctx))) return {};
 
 		const result: Record<
 			Id<"events">,
@@ -514,8 +516,9 @@ export const getUserSignups = query({
 		}),
 	),
 	handler: async (ctx) => {
-		const { user } = await requireActiveUser(ctx);
-		const userId = user._id;
+		const identity = await getActiveIdentity(ctx);
+		if (!identity) return [];
+		const userId = identity.user._id;
 
 		// Get all signups for the user
 		const signups = await ctx.db
@@ -551,8 +554,7 @@ export const getPendingCountsForEvents = query({
 	args: { eventIds: v.array(v.id("events")) },
 	returns: v.record(v.id("events"), v.number()),
 	handler: async (ctx, args) => {
-		// Only admins or event managers can see pending counts
-		await requireEventManager(ctx);
+		if (!(await isEventManager(ctx))) return {};
 
 		const counts: Record<Id<"events">, number> = {};
 		for (const eventId of args.eventIds) {
@@ -592,8 +594,9 @@ export const isSignedUpForEvent = query({
 		v.null(),
 	),
 	handler: async (ctx, args) => {
-		const { user } = await requireActiveUser(ctx);
-		const userId = user._id;
+		const identity = await getActiveIdentity(ctx);
+		if (!identity) return null;
+		const userId = identity.user._id;
 
 		// Check if user has signed up for this event
 		const signup = await ctx.db

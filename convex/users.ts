@@ -2,7 +2,11 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
-import { getUserAccess, requireActiveUser } from "./permissions";
+import {
+	getActiveIdentity,
+	getUserAccess,
+	requireActiveUser,
+} from "./permissions";
 
 export const getCurrentUser = query({
 	args: {},
@@ -242,7 +246,9 @@ export const getScheduleUrl = query({
 	args: {},
 	returns: v.union(v.null(), v.string()),
 	handler: async (ctx) => {
-		const { user } = await requireActiveUser(ctx);
+		const identity = await getActiveIdentity(ctx);
+		if (!identity) return null;
+		const { user } = identity;
 		if (!user.scheduleFileId) {
 			return null;
 		}

@@ -16,17 +16,25 @@ export default function StudentDashboard() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const user = useQuery(api.users.getCurrentUser);
+	const hasActiveAccess =
+		user?.accessStatus === "ACTIVE" && user.role === "STUDENT";
 	const updateCalendarPreferences = useMutation(
 		api.users.updateCalendarPreferences,
 	);
-	const rawEvents = useQuery(api.events.listEvents);
+	const rawEvents = useQuery(
+		api.events.listEvents,
+		hasActiveAccess ? {} : "skip",
+	);
 	const events = useMemo(() => rawEvents ?? [], [rawEvents]);
-	const userSignups = useQuery(api.signups.getUserSignups) ?? [];
+	const userSignups =
+		useQuery(api.signups.getUserSignups, hasActiveAccess ? {} : "skip") ?? [];
 
 	// Fetch signups for all events using batch query
 	const eventSignupsData = useQuery(
 		api.signups.getPublicEventSignupsBatch,
-		events.length > 0 ? { eventIds: events.map((e) => e._id) } : "skip",
+		hasActiveAccess && events.length > 0
+			? { eventIds: events.map((e) => e._id) }
+			: "skip",
 	);
 	const eventSignups = useMemo(() => {
 		return eventSignupsData ?? {};
@@ -63,12 +71,11 @@ export default function StudentDashboard() {
 	const dialogOpen = !!selectedEvent;
 
 	useEffect(() => {
-		if (!isLoading && (!user || user.role !== "STUDENT")) {
-			router.push("/");
-		}
-	}, [user, isLoading, router]);
+		if (isLoading || hasActiveAccess) return;
+		router.replace(user?.accessStatus === "REVOKED" ? "/unauthorized" : "/");
+	}, [user, isLoading, hasActiveAccess, router]);
 
-	if (isLoading || !user) {
+	if (isLoading || !hasActiveAccess) {
 		return (
 			<div className="flex min-h-screen items-center justify-center">
 				<div className="text-muted-foreground">Loading...</div>

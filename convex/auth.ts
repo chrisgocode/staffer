@@ -39,9 +39,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 					process.env.ADMIN_EMAILS,
 					process.env.STUDENT_EMAILS,
 				).get(email);
-				if (!role) {
-					throw new Error("Access has not been granted for this email");
-				}
+				// Finish authentication so the app can route denied users to /unauthorized.
+				if (!role) return;
 				const user = await db.get(args.userId);
 				const grantId = await db.insert("accessGrants", {
 					email,
@@ -54,9 +53,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 				grant = await db.get(grantId);
 			}
 
-			if (!grant || grant.status !== "ACTIVE") {
-				throw new Error("Access has been revoked for this email");
-			}
+			if (!grant || grant.status !== "ACTIVE") return;
 			if (grant.userId && grant.userId !== args.userId) {
 				throw new Error("This access grant is linked to another account");
 			}
