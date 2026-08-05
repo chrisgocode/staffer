@@ -3,10 +3,9 @@ import { dateInNewYork } from "../../lib/read-only-schedule";
 import { resolveStudentSemesters } from "../../lib/semester-schedule";
 import { internalMutation, mutation, query } from "../_generated/server";
 import {
+	getActiveIdentity,
 	getUserAccess,
-	requireActiveUser,
 	requireAdmin,
-	requireStudent,
 } from "../permissions";
 import { doesShiftConflict, getAllBlockedRanges } from "./conflictUtils";
 
@@ -56,7 +55,8 @@ export const getScheduleForSemester = query({
 		v.null(),
 	),
 	handler: async (ctx, args) => {
-		await requireAdmin(ctx);
+		const identity = await getActiveIdentity(ctx);
+		if (!identity || identity.access.role !== "ADMIN") return null;
 
 		// Find active schedule for semester
 		const schedule = await ctx.db
@@ -109,7 +109,7 @@ export const listSemesters = query({
 		defaultSemester: v.optional(v.string()),
 	}),
 	handler: async (ctx) => {
-		await requireActiveUser(ctx);
+		if (!(await getActiveIdentity(ctx))) return { semesters: [] };
 		const semesters = (await ctx.db.query("semesters").collect())
 			.map(({ semester, startDate, endDate }) => ({
 				semester,
@@ -168,7 +168,11 @@ export const getStudentSchedule = query({
 		),
 	}),
 	handler: async (ctx, args) => {
-		const { user } = await requireStudent(ctx);
+		const identity = await getActiveIdentity(ctx);
+		if (!identity || identity.access.role !== "STUDENT") {
+			return { visibleSemesters: [], schedule: null, holidays: [] };
+		}
+		const { user } = identity;
 		const semesters = await ctx.db.query("semesters").collect();
 		const publishedSchedules = (await ctx.db.query("staffSchedules").collect())
 			.filter((schedule) => schedule.isActive)
@@ -331,7 +335,8 @@ export const getStaffMembers = query({
 		}),
 	),
 	handler: async (ctx) => {
-		await requireAdmin(ctx);
+		const identity = await getActiveIdentity(ctx);
+		if (!identity || identity.access.role !== "ADMIN") return [];
 
 		const grants = await ctx.db
 			.query("accessGrants")

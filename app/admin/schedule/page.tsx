@@ -11,14 +11,20 @@ import { api } from "@/convex/_generated/api";
 export default function SchedulePage() {
 	const router = useRouter();
 	const user = useQuery(api.users.getCurrentUser);
+	const hasActiveAccess =
+		user?.accessStatus === "ACTIVE" && user.role === "ADMIN";
 	const isLoading = user === undefined;
 
-	// Redirect if not admin (schedule is admin-only)
 	useEffect(() => {
-		if (!isLoading && (!user || user.role !== "ADMIN")) {
-			router.push("/admin");
-		}
-	}, [user, isLoading, router]);
+		if (isLoading || hasActiveAccess) return;
+		router.replace(
+			user?.accessStatus === "REVOKED"
+				? "/unauthorized"
+				: user
+					? "/admin"
+					: "/",
+		);
+	}, [user, isLoading, hasActiveAccess, router]);
 
 	if (isLoading) {
 		return (
@@ -28,7 +34,7 @@ export default function SchedulePage() {
 		);
 	}
 
-	if (!user || user.role !== "ADMIN") {
+	if (!hasActiveAccess) {
 		return null;
 	}
 

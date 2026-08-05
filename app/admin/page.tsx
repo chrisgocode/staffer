@@ -25,17 +25,24 @@ import type { Event } from "@/lib/types";
 export default function AdminDashboard() {
 	const router = useRouter();
 	const user = useQuery(api.users.getCurrentUser);
-	const events = useQuery(api.events.listEvents) ?? [];
+	const hasActiveAccess =
+		user?.accessStatus === "ACTIVE" &&
+		(user.role === "ADMIN" || user.canManageEvents === true);
+	const events =
+		useQuery(api.events.listEvents, hasActiveAccess ? {} : "skip") ?? [];
 	const deleteEvent = useMutation(api.events.deleteEvent);
 	const pendingCounts =
-		useQuery(api.signups.getPendingCountsForEvents, {
-			eventIds: events.map((e) => e._id),
-		}) ?? {};
+		useQuery(
+			api.signups.getPendingCountsForEvents,
+			hasActiveAccess ? { eventIds: events.map((e) => e._id) } : "skip",
+		) ?? {};
 
 	// Fetch signups for all events using batch query
 	const eventSignupsData = useQuery(
 		api.signups.getEventSignupsBatch,
-		events.length > 0 ? { eventIds: events.map((e) => e._id) } : "skip",
+		hasActiveAccess && events.length > 0
+			? { eventIds: events.map((e) => e._id) }
+			: "skip",
 	);
 	const eventSignups = useMemo(() => {
 		return eventSignupsData ?? {};
@@ -71,14 +78,11 @@ export default function AdminDashboard() {
 	};
 
 	useEffect(() => {
-		// Allow admins and event managers
-		const hasAccess = user?.role === "ADMIN" || user?.canManageEvents === true;
-		if (!isLoading && (!user || !hasAccess)) {
-			router.push("/");
-		}
-	}, [user, isLoading, router]);
+		if (isLoading || hasActiveAccess) return;
+		router.replace(user?.accessStatus === "REVOKED" ? "/unauthorized" : "/");
+	}, [user, isLoading, hasActiveAccess, router]);
 
-	if (isLoading || !user) {
+	if (isLoading || !hasActiveAccess) {
 		return (
 			<div className="flex min-h-screen items-center justify-center">
 				<div className="text-muted-foreground">Loading...</div>

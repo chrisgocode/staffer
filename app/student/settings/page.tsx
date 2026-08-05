@@ -66,14 +66,25 @@ type SchedulePreferences = {
 
 export default function Settings() {
 	const user = useQuery(api.users.getCurrentUser);
-	const semesterData = useQuery(api.schedule.schedule.listSemesters);
-	const getCalendarURL = useQuery(api.calendar.getMyCalendarUrl);
+	const hasActiveAccess =
+		user?.accessStatus === "ACTIVE" && user.role === "STUDENT";
+	const semesterData = useQuery(
+		api.schedule.schedule.listSemesters,
+		hasActiveAccess ? {} : "skip",
+	);
+	const getCalendarURL = useQuery(
+		api.calendar.getMyCalendarUrl,
+		hasActiveAccess ? {} : "skip",
+	);
 	const generateCalendarToken = useMutation(api.calendar.generateCalendarToken);
 	const updateUserName = useMutation(api.users.updateUserName);
 	const generateUploadUrl = useMutation(api.users.generateUploadUrl);
 	const uploadSchedule = useMutation(api.users.uploadSchedule);
 	const deleteSchedule = useMutation(api.users.deleteSchedule);
-	const scheduleUrl = useQuery(api.users.getScheduleUrl);
+	const scheduleUrl = useQuery(
+		api.users.getScheduleUrl,
+		hasActiveAccess ? {} : "skip",
+	);
 	const updateSchedulePreferences = useMutation(
 		api.users.updateSchedulePreferences,
 	);
@@ -101,6 +112,11 @@ export default function Settings() {
 	];
 
 	const calendarURL = getCalendarURL;
+
+	useEffect(() => {
+		if (user === undefined || hasActiveAccess) return;
+		router.replace(user?.accessStatus === "REVOKED" ? "/unauthorized" : "/");
+	}, [user, hasActiveAccess, router]);
 
 	useEffect(() => {
 		if (!selectedSemester && semesterData) {
@@ -284,7 +300,7 @@ export default function Settings() {
 		}
 	};
 
-	if (!user || !calendarURL) {
+	if (!hasActiveAccess || !calendarURL) {
 		return (
 			<div>
 				<Spinner />

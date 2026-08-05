@@ -6,7 +6,11 @@ import {
 	mutation,
 	query,
 } from "./_generated/server";
-import { getUserAccess, requireStudent } from "./permissions";
+import {
+	getActiveIdentity,
+	getUserAccess,
+	requireStudent,
+} from "./permissions";
 
 // Generate a cryptographically secure random token
 function generateSecureToken(): string {
@@ -53,7 +57,9 @@ export const getMyCalendarUrl = query({
 		v.null(),
 	),
 	handler: async (ctx) => {
-		const { user } = await requireStudent(ctx);
+		const identity = await getActiveIdentity(ctx);
+		if (!identity || identity.access.role !== "STUDENT") return null;
+		const { user } = identity;
 
 		if (!user.calendarToken) {
 			return null;

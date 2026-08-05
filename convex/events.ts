@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireActiveUser, requireEventManager } from "./permissions";
+import { getActiveIdentity, requireEventManager } from "./permissions";
 
 const eventSchema = v.object({
 	_id: v.id("events"),
@@ -22,7 +22,7 @@ export const listEvents = query({
 	args: {},
 	returns: v.array(eventSchema),
 	handler: async (ctx) => {
-		await requireActiveUser(ctx);
+		if (!(await getActiveIdentity(ctx))) return [];
 		return await ctx.db.query("events").withIndex("by_start_time").collect();
 	},
 });
@@ -31,7 +31,7 @@ export const listUpcomingEvents = query({
 	args: {},
 	returns: v.array(eventSchema),
 	handler: async (ctx) => {
-		await requireActiveUser(ctx);
+		if (!(await getActiveIdentity(ctx))) return [];
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
 		const todayStr = today.toISOString().split("T")[0];
@@ -54,7 +54,7 @@ export const getEventsByDateRange = query({
 	},
 	returns: v.array(eventSchema),
 	handler: async (ctx, args) => {
-		await requireActiveUser(ctx);
+		if (!(await getActiveIdentity(ctx))) return [];
 		return await ctx.db
 			.query("events")
 			.withIndex("by_start_and_end_time")
