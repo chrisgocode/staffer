@@ -1,0 +1,32 @@
+version: 2
+
+# Version updates wait out a cooldown so newly published releases have time to be
+# vetted (and yanked if compromised) before we adopt them. The cooldown only
+# applies to version updates: Dependabot security updates for known
+# vulnerabilities are opened immediately.
+
+updates:
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      # One PR for all non-breaking bumps; majors still get their own PRs.
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - "*"
